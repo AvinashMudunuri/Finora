@@ -17,14 +17,23 @@ import {
   transactionTypeLabel,
 } from "../domain/finance.ts";
 import type { Account, Card, Transaction } from "../domain/types.ts";
+import { SiteHeader } from "./SiteHeader.tsx";
 
 export type DashboardProps = {
   accounts: Account[];
   cards: Card[];
   transactions: Transaction[];
+  onShowCards?: () => void;
+  onOpenCard?: (cardId: string) => void;
 };
 
-export function Dashboard({ accounts, cards, transactions }: DashboardProps) {
+export function Dashboard({
+  accounts,
+  cards,
+  transactions,
+  onShowCards,
+  onOpenCard,
+}: DashboardProps) {
   const [accountFilter, setAccountFilter] = useState("all");
 
   const recentTransactions = useMemo(
@@ -55,12 +64,13 @@ export function Dashboard({ accounts, cards, transactions }: DashboardProps) {
 
   return (
     <div className="app-shell">
-      <header className="site-header">
-        <div className="brand">
-          <p className="brand-name">Finora</p>
-          <p className="brand-tagline">Your financial life, clearly connected</p>
-        </div>
-      </header>
+      <SiteHeader
+        current="dashboard"
+        onShowDashboard={() => undefined}
+        onShowCards={() => {
+          onShowCards?.();
+        }}
+      />
 
       <main className="page">
         <div className="page-intro">
@@ -151,9 +161,9 @@ export function Dashboard({ accounts, cards, transactions }: DashboardProps) {
                   </article>
                 </li>
               ))}
-              {cards.map((card) => (
-                <li key={card.id}>
-                  <article className="account-card account-card-credit">
+              {cards.map((card) => {
+                const cardBody = (
+                  <>
                     <div className="account-card-top">
                       <h3>{card.name}</h3>
                       <p className="account-type">Credit Card</p>
@@ -167,9 +177,30 @@ export function Dashboard({ accounts, cards, transactions }: DashboardProps) {
                       )}{" "}
                       utilized · {card.currency}
                     </p>
-                  </article>
-                </li>
-              ))}
+                  </>
+                );
+
+                return (
+                  <li key={card.id}>
+                    {onOpenCard ? (
+                      <button
+                        type="button"
+                        className="account-card account-card-credit account-card-button"
+                        aria-label={`View ${card.name}`}
+                        onClick={() => {
+                          onOpenCard(card.id);
+                        }}
+                      >
+                        {cardBody}
+                      </button>
+                    ) : (
+                      <article className="account-card account-card-credit">
+                        {cardBody}
+                      </article>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </section>

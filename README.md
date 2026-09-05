@@ -6,7 +6,7 @@ Finora is a personal finance application. This repository is the product. Produc
 
 ## Current scope
 
-The app still shows the existing basic dashboard: overview, accounts, recent transactions, and account filtering.
+The app shows the existing dashboard: overview, accounts, recent transactions, and account filtering. A dedicated Cards view lists each card’s balance, limit, available credit, utilization, due date, and payment status, and shows the transactions linked to a selected card.
 
 The first domain slice now includes:
 

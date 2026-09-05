@@ -5,8 +5,10 @@ import {
   creditOwed,
   formatCurrency,
   formatDate,
+  getCardTransactions,
   getRecentTransactions,
   netBalance,
+  paymentStatusLabel,
   signedAmount,
 } from "./finance.ts";
 
@@ -163,5 +165,57 @@ describe("recent transactions", () => {
 describe("date formatting", () => {
   it("formats ISO dates as readable calendar days", () => {
     expect(formatDate("2026-09-03")).toBe("Sep 3, 2026");
+  });
+});
+
+describe("card transactions", () => {
+  it("returns only transactions with an explicit matching cardId", () => {
+    const transactions: Transaction[] = [
+      {
+        id: "visa-purchase",
+        date: "2026-08-30",
+        description: "Transit — Metro Card",
+        amount: 48,
+        currency: "USD",
+        eventType: "card_purchase",
+        accountId: null,
+        counterpartyAccountId: null,
+        cardId: "card-visa",
+      },
+      {
+        id: "amex-purchase",
+        date: "2026-08-29",
+        description: "Visa Rewards lookalike",
+        amount: 42.15,
+        currency: "USD",
+        eventType: "card_purchase",
+        accountId: null,
+        counterpartyAccountId: null,
+        cardId: "card-amex",
+      },
+      {
+        id: "checking-expense",
+        date: "2026-09-02",
+        description: "Whole Foods Market",
+        amount: 87.42,
+        currency: "USD",
+        eventType: "expense",
+        accountId: "acc-checking",
+        counterpartyAccountId: null,
+        cardId: null,
+      },
+    ];
+
+    expect(getCardTransactions(transactions, "card-visa").map((tx) => tx.id)).toEqual([
+      "visa-purchase",
+    ]);
+  });
+});
+
+describe("payment status labels", () => {
+  it("renders payment status as a readable label", () => {
+    expect(paymentStatusLabel("current")).toBe("Current");
+    expect(paymentStatusLabel("due")).toBe("Due");
+    expect(paymentStatusLabel("overdue")).toBe("Overdue");
   });
 });
