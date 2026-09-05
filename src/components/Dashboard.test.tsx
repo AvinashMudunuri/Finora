@@ -1,7 +1,11 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { fixtureAccounts, fixtureTransactions } from "../data/fixtures.ts";
+import {
+  fixtureAccounts,
+  fixtureCards,
+  fixtureTransactions,
+} from "../data/fixtures.ts";
 import { formatCurrency, netBalance, signedAmount } from "../domain/finance.ts";
 import { Dashboard } from "./Dashboard.tsx";
 
@@ -9,6 +13,7 @@ function renderDashboard() {
   return render(
     <Dashboard
       accounts={fixtureAccounts}
+      cards={fixtureCards}
       transactions={fixtureTransactions}
     />,
   );
@@ -24,36 +29,49 @@ describe("Finora dashboard", () => {
     expect(screen.getByText("Finora")).toBeInTheDocument();
   });
 
-  it("shows each account name, type, and formatted balance", () => {
+  it("shows account and card positions from the fixture data", () => {
     renderDashboard();
 
     const accounts = screen.getByRole("region", { name: "Accounts" });
 
     expect(within(accounts).getByText("Everyday Checking")).toBeInTheDocument();
     expect(within(accounts).getByText("Emergency Savings")).toBeInTheDocument();
+    expect(within(accounts).getAllByText("Cash").length).toBeGreaterThan(0);
+    expect(within(accounts).getByText("Investment Account")).toBeInTheDocument();
     expect(within(accounts).getByText("Visa Rewards")).toBeInTheDocument();
-    expect(within(accounts).getByText("Checking")).toBeInTheDocument();
-    expect(within(accounts).getByText("Savings")).toBeInTheDocument();
-    expect(within(accounts).getByText("Credit Card")).toBeInTheDocument();
+    expect(within(accounts).getAllByText("Bank").length).toBeGreaterThan(0);
+    expect(within(accounts).getByText("Investment")).toBeInTheDocument();
+    expect(within(accounts).getAllByText("Credit Card").length).toBeGreaterThan(0);
 
     for (const account of fixtureAccounts) {
       expect(
         within(accounts).getByText(formatCurrency(account.balance, account.currency)),
       ).toBeInTheDocument();
     }
+
+    for (const card of fixtureCards) {
+      expect(
+        within(accounts).getByText(
+          formatCurrency(card.outstandingBalance, card.currency),
+        ),
+      ).toBeInTheDocument();
+    }
   });
 
-  it("shows a net balance that subtracts credit-card amounts owed", () => {
+  it("shows a net balance that subtracts card amounts owed", () => {
     renderDashboard();
 
     const overview = screen.getByRole("region", { name: "Overview" });
-    const expected = formatCurrency(netBalance(fixtureAccounts), "USD");
+    const expected = formatCurrency(
+      netBalance(fixtureAccounts, fixtureCards),
+      "USD",
+    );
 
     expect(within(overview).getByText(expected)).toBeInTheDocument();
-    expect(within(overview).queryByText("$18,578.66")).not.toBeInTheDocument();
+    expect(within(overview).queryByText("$8,420.55")).not.toBeInTheDocument();
   });
 
-  it("lists recent transactions with description, account, date, amount, and type", () => {
+  it("lists recent transactions with description, party, date, amount, and type", () => {
     renderDashboard();
 
     const transactions = screen.getByRole("region", { name: "Recent transactions" });
@@ -74,7 +92,7 @@ describe("Finora dashboard", () => {
     expect(within(groceries!).getByText("Outflow")).toBeInTheDocument();
   });
 
-  it("formats transaction amounts from their type", () => {
+  it("formats transaction amounts from their financial event", () => {
     renderDashboard();
 
     const paycheck = fixtureTransactions.find(
@@ -92,7 +110,7 @@ describe("Finora dashboard", () => {
     expect(screen.getByText("-$87.42")).toBeInTheDocument();
   });
 
-  it("filters recent transactions by account", async () => {
+  it("filters recent transactions by account or card", async () => {
     const user = userEvent.setup();
     renderDashboard();
 
@@ -102,6 +120,10 @@ describe("Finora dashboard", () => {
     expect(within(transactions).getByText("Interest credit")).toBeInTheDocument();
     expect(within(transactions).queryByText("Payroll — Acme Corp")).not.toBeInTheDocument();
     expect(within(transactions).queryByText("Dinner — Riverview")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Visa Rewards" }));
+    expect(within(transactions).getByText("Dinner — Riverview")).toBeInTheDocument();
+    expect(within(transactions).queryByText("Payroll — Acme Corp")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "All accounts" }));
     expect(within(transactions).getByText("Payroll — Acme Corp")).toBeInTheDocument();
@@ -114,19 +136,23 @@ describe("Finora dashboard", () => {
           {
             id: "acc-harbor",
             name: "Harbor Checking",
-            type: "checking",
+            type: "bank",
             balance: 100,
             currency: "USD",
           },
         ]}
+        cards={[]}
         transactions={[
           {
             id: "txn-harbor",
-            accountId: "acc-harbor",
+            date: "2026-09-01",
             description: "Harbor Payroll",
             amount: 10,
-            date: "2026-09-01",
-            type: "inflow",
+            currency: "USD",
+            eventType: "income",
+            accountId: "acc-harbor",
+            counterpartyAccountId: null,
+            cardId: null,
           },
         ]}
       />,
@@ -139,27 +165,12 @@ describe("Finora dashboard", () => {
     expect(screen.queryByText("Payroll — Acme Corp")).not.toBeInTheDocument();
   });
 
-  it("filters checking and credit-card transactions by accountId", async () => {
-    const user = userEvent.setup();
-    renderDashboard();
-
-    await user.click(screen.getByRole("button", { name: "Everyday Checking" }));
-    const transactions = screen.getByRole("region", { name: "Recent transactions" });
-    expect(within(transactions).getByText("Payroll — Acme Corp")).toBeInTheDocument();
-    expect(within(transactions).queryByText("Dinner — Riverview")).not.toBeInTheDocument();
-    expect(within(transactions).queryByText("Interest credit")).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Visa Rewards" }));
-    expect(within(transactions).getByText("Dinner — Riverview")).toBeInTheDocument();
-    expect(within(transactions).queryByText("Payroll — Acme Corp")).not.toBeInTheDocument();
-  });
-
   it("shows an empty state when a filter has no transactions", async () => {
     const user = userEvent.setup();
     const emptyAccount = {
       id: "acc-empty",
       name: "New Brokerage",
-      type: "checking" as const,
+      type: "investment" as const,
       balance: 0,
       currency: "USD" as const,
     };
@@ -167,6 +178,7 @@ describe("Finora dashboard", () => {
     render(
       <Dashboard
         accounts={[...fixtureAccounts, emptyAccount]}
+        cards={fixtureCards}
         transactions={fixtureTransactions}
       />,
     );

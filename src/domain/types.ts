@@ -1,6 +1,6 @@
-export type AccountType = "checking" | "savings" | "credit";
-
 export type CurrencyCode = "USD";
+
+export type AccountType = "bank" | "cash" | "investment";
 
 export type Account = {
   id: string;
@@ -10,13 +10,53 @@ export type Account = {
   currency: CurrencyCode;
 };
 
-export type TransactionType = "inflow" | "outflow";
+export type CardPaymentStatus = "current" | "due" | "overdue";
+
+export type Card = {
+  id: string;
+  name: string;
+  issuer: string;
+  creditLimit: number;
+  outstandingBalance: number;
+  availableCredit: number;
+  currency: CurrencyCode;
+  statementPeriodEnd: string;
+  paymentDueDate: string;
+  minimumPayment: number;
+  paymentStatus: CardPaymentStatus;
+};
+
+export type TransactionEventType =
+  | "income"
+  | "expense"
+  | "transfer"
+  | "card_purchase"
+  | "card_payment"
+  | "investment";
 
 export type Transaction = {
   id: string;
-  accountId: string;
+  date: string;
   description: string;
   amount: number;
-  date: string;
-  type: TransactionType;
+  currency: CurrencyCode;
+  eventType: TransactionEventType;
+  accountId: string | null;
+  counterpartyAccountId: string | null;
+  cardId: string | null;
 };
+
+export const ACCOUNT_TYPES: readonly AccountType[] = [
+  "bank",
+  "cash",
+  "investment",
+];
+
+export const TRANSACTION_EVENT_TYPES: readonly TransactionEventType[] = [
+  "income",
+  "expense",
+  "transfer",
+  "card_purchase",
+  "card_payment",
+  "investment",
+];

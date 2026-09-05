@@ -8,16 +8,18 @@ import {
   getRecentTransactions,
   netBalance,
   signedAmount,
+  transactionDirection,
   transactionTypeLabel,
 } from "../domain/finance.ts";
-import type { Account, Transaction } from "../domain/types.ts";
+import type { Account, Card, Transaction } from "../domain/types.ts";
 
 export type DashboardProps = {
   accounts: Account[];
+  cards: Card[];
   transactions: Transaction[];
 };
 
-export function Dashboard({ accounts, transactions }: DashboardProps) {
+export function Dashboard({ accounts, cards, transactions }: DashboardProps) {
   const [accountFilter, setAccountFilter] = useState("all");
 
   const recentTransactions = useMemo(
@@ -29,10 +31,14 @@ export function Dashboard({ accounts, transactions }: DashboardProps) {
     return new Map(accounts.map((account) => [account.id, account]));
   }, [accounts]);
 
-  const currency = accounts[0]?.currency ?? "USD";
-  const net = netBalance(accounts);
+  const cardsById = useMemo(() => {
+    return new Map(cards.map((card) => [card.id, card]));
+  }, [cards]);
+
+  const currency = accounts[0]?.currency ?? cards[0]?.currency ?? "USD";
+  const net = netBalance(accounts, cards);
   const cash = cashTotal(accounts);
-  const credit = creditOwed(accounts);
+  const credit = creditOwed(cards);
 
   return (
     <div className="app-shell">
@@ -60,7 +66,7 @@ export function Dashboard({ accounts, transactions }: DashboardProps) {
             </p>
           </div>
 
-          {accounts.length === 0 ? (
+          {accounts.length === 0 && cards.length === 0 ? (
             <p className="empty-state">No accounts to summarize yet.</p>
           ) : (
             <div className="overview-grid">
@@ -72,7 +78,7 @@ export function Dashboard({ accounts, transactions }: DashboardProps) {
               <article className="stat-card">
                 <h3>Cash</h3>
                 <p className="stat-value">{formatCurrency(cash, currency)}</p>
-                <p className="stat-note">Checking and savings</p>
+                <p className="stat-note">Bank and cash accounts</p>
               </article>
               <article className="stat-card">
                 <h3>Credit cards</h3>
@@ -93,19 +99,13 @@ export function Dashboard({ accounts, transactions }: DashboardProps) {
             </p>
           </div>
 
-          {accounts.length === 0 ? (
+          {accounts.length === 0 && cards.length === 0 ? (
             <p className="empty-state">No accounts yet.</p>
           ) : (
             <ul className="account-grid">
               {accounts.map((account) => (
                 <li key={account.id}>
-                  <article
-                    className={
-                      account.type === "credit"
-                        ? "account-card account-card-credit"
-                        : "account-card"
-                    }
-                  >
+                  <article className="account-card">
                     <div className="account-card-top">
                       <h3>{account.name}</h3>
                       <p className="account-type">
@@ -116,9 +116,25 @@ export function Dashboard({ accounts, transactions }: DashboardProps) {
                       {formatCurrency(account.balance, account.currency)}
                     </p>
                     <p className="account-note">
-                      {account.type === "credit"
-                        ? `Amount owed · ${account.currency}`
+                      {account.type === "investment"
+                        ? `Current value · ${account.currency}`
                         : `Available balance · ${account.currency}`}
+                    </p>
+                  </article>
+                </li>
+              ))}
+              {cards.map((card) => (
+                <li key={card.id}>
+                  <article className="account-card account-card-credit">
+                    <div className="account-card-top">
+                      <h3>{card.name}</h3>
+                      <p className="account-type">Credit Card</p>
+                    </div>
+                    <p className="account-balance">
+                      {formatCurrency(card.outstandingBalance, card.currency)}
+                    </p>
+                    <p className="account-note">
+                      Amount owed · {card.currency}
                     </p>
                   </article>
                 </li>
@@ -167,6 +183,23 @@ export function Dashboard({ accounts, transactions }: DashboardProps) {
                 {account.name}
               </button>
             ))}
+            {cards.map((card) => (
+              <button
+                key={card.id}
+                type="button"
+                className={
+                  accountFilter === card.id
+                    ? "filter-chip is-active"
+                    : "filter-chip"
+                }
+                aria-pressed={accountFilter === card.id}
+                onClick={() => {
+                  setAccountFilter(card.id);
+                }}
+              >
+                {card.name}
+              </button>
+            ))}
           </div>
 
           {recentTransactions.length === 0 ? (
@@ -178,8 +211,8 @@ export function Dashboard({ accounts, transactions }: DashboardProps) {
           ) : (
             <ol className="transaction-list">
               {recentTransactions.map((transaction) => {
-                const account = accountsById.get(transaction.accountId);
-                const amount = signedAmount(transaction);
+                const direction = transactionDirection(transaction, accountFilter);
+                const amount = signedAmount(transaction, accountFilter);
 
                 return (
                   <li key={transaction.id} className="transaction-row">
@@ -188,7 +221,13 @@ export function Dashboard({ accounts, transactions }: DashboardProps) {
                         {transaction.description}
                       </p>
                       <p className="transaction-meta">
-                        <span>{account?.name ?? "Unknown account"}</span>
+                        <span>
+                          {transactionPartyName(
+                            transaction,
+                            accountsById,
+                            cardsById,
+                          )}
+                        </span>
                         <span aria-hidden="true">·</span>
                         <time dateTime={transaction.date}>
                           {formatDate(transaction.date)}
@@ -198,15 +237,19 @@ export function Dashboard({ accounts, transactions }: DashboardProps) {
                     <div className="transaction-aside">
                       <p
                         className={
-                          transaction.type === "inflow"
+                          direction === "inflow"
                             ? "transaction-amount is-inflow"
                             : "transaction-amount is-outflow"
                         }
                       >
-                        {formatCurrency(amount, account?.currency ?? currency, true)}
+                        {formatCurrency(
+                          amount,
+                          transaction.currency,
+                          true,
+                        )}
                       </p>
                       <p className="transaction-type">
-                        {transactionTypeLabel(transaction.type)}
+                        {transactionTypeLabel(direction)}
                       </p>
                     </div>
                   </li>
@@ -218,4 +261,39 @@ export function Dashboard({ accounts, transactions }: DashboardProps) {
       </main>
     </div>
   );
+}
+
+function transactionPartyName(
+  transaction: Transaction,
+  accountsById: Map<string, Account>,
+  cardsById: Map<string, Card>,
+): string {
+  if (transaction.eventType === "card_purchase" && transaction.cardId) {
+    return cardsById.get(transaction.cardId)?.name ?? "Unknown card";
+  }
+
+  if (transaction.eventType === "transfer") {
+    const source = transaction.accountId
+      ? accountsById.get(transaction.accountId)?.name
+      : undefined;
+    const destination = transaction.counterpartyAccountId
+      ? accountsById.get(transaction.counterpartyAccountId)?.name
+      : undefined;
+
+    if (source && destination) {
+      return `${source} → ${destination}`;
+    }
+
+    return source ?? destination ?? "Unknown account";
+  }
+
+  if (transaction.accountId) {
+    return accountsById.get(transaction.accountId)?.name ?? "Unknown account";
+  }
+
+  if (transaction.cardId) {
+    return cardsById.get(transaction.cardId)?.name ?? "Unknown card";
+  }
+
+  return "Unknown account";
 }
