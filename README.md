@@ -2,28 +2,32 @@
 
 Your financial life, clearly connected.
 
-Finora is a personal finance application. This repository is the product.
+Finora is a personal finance application. This repository is the product. Product requirements live in the Finora PRD; this README only describes the current implementation.
 
-## Current functionality
+## Current scope
 
-The first usable slice is a dashboard that shows:
+The app still shows the existing basic dashboard: overview, accounts, recent transactions, and account filtering.
 
-- A net balance across the available accounts
-- Checking, savings, and credit card accounts with balances
-- Recent transactions
-- Filtering of those transactions by account
+The first domain slice now includes:
 
-Overview totals are calculated from the account dataset. Credit card balances are amounts owed, so they reduce the net total.
+- **Account** — bank, cash, and investment positions
+- **Card** — first-class credit cards, not account subtypes
+- **Transaction** — income, expense, transfer, card purchase, card payment, and investment events
 
-All numbers come from **deterministic local fixture data**. Fixture relationships are validated on load. There is no backend, bank connection, or live account sync.
+Balances live on the account or card they belong to. Overview cash and net figures still use the existing dashboard math (bank + cash, minus card amounts owed). They are not a net-worth engine.
 
-## Technology
+All numbers come from **deterministic local fixture data**. Relationships are validated on load. There is no backend, bank connection, or live account sync.
 
-- TypeScript
-- React
-- Vite
-- Vitest
-- Standard CSS
+## Unresolved product decisions
+
+These stay open, as in the PRD:
+
+- Geography — fixtures use USD as development data only
+- Checking vs savings — both are `bank` accounts until the PRD decides otherwise
+- Investment depth and net worth — investment value is stored but not folded into overview totals
+- Card utilization, rewards, and lifecycle rules
+- Transaction categorization beyond explicit event types
+- Manual / imported / live-connected data
 
 ## Local development
 
@@ -32,22 +36,15 @@ npm install
 npm run dev
 ```
 
-## Testing
+## Testing, typecheck, lint, and build
 
 ```bash
 npm test
-```
-
-## Typecheck, lint, and production build
-
-```bash
 npm run typecheck
 npm run lint
 npm run build
 ```
 
-## Current limitations
+## Technology
 
-- Balances and transactions are static fixtures. They are not imported from a bank and are not recalculated from each other.
-- Only the dashboard slice exists. Accounts and transactions cannot be created, edited, or connected yet.
-- There is no authentication, persistence, or multi-user support.
+TypeScript, React, Vite, Vitest, and standard CSS.

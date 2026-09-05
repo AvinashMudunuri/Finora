@@ -1,24 +1,37 @@
 import { describe, expect, it } from "vitest";
 import { cashTotal, creditOwed, netBalance } from "../domain/finance.ts";
+import { ACCOUNT_TYPES, TRANSACTION_EVENT_TYPES } from "../domain/types.ts";
 import { assertValidFinanceData } from "../domain/validate.ts";
-import { fixtureAccounts, fixtureTransactions } from "./fixtures.ts";
+import {
+  fixtureAccounts,
+  fixtureCards,
+  fixtureTransactions,
+} from "./fixtures.ts";
 
 describe("fixture accounts", () => {
-  it("includes checking, savings, and credit card accounts", () => {
+  it("loads bank, cash, and investment accounts", () => {
     const types = fixtureAccounts.map((account) => account.type);
 
-    expect(types).toContain("checking");
-    expect(types).toContain("savings");
-    expect(types).toContain("credit");
+    expect(types).toContain("bank");
+    expect(types).toContain("cash");
+    expect(types).toContain("investment");
+    expect(fixtureAccounts.map((account) => account.name)).toEqual(
+      expect.arrayContaining([
+        "Everyday Checking",
+        "Emergency Savings",
+        "Cash",
+        "Investment Account",
+      ]),
+    );
   });
 
-  it("gives every account a stable id, name, type, balance, and currency", () => {
-    expect(fixtureAccounts.length).toBeGreaterThanOrEqual(3);
+  it("gives every account a stable id, type, currency, and balance", () => {
+    expect(fixtureAccounts.length).toBeGreaterThanOrEqual(4);
 
     for (const account of fixtureAccounts) {
       expect(account.id).toMatch(/\S/);
       expect(account.name).toMatch(/\S/);
-      expect(["checking", "savings", "credit"]).toContain(account.type);
+      expect(ACCOUNT_TYPES).toContain(account.type);
       expect(Number.isFinite(account.balance)).toBe(true);
       expect(account.currency).toBe("USD");
     }
@@ -30,29 +43,86 @@ describe("fixture accounts", () => {
   });
 });
 
-describe("fixture transactions", () => {
-  it("includes several transactions across the fixture accounts", () => {
-    expect(fixtureTransactions.length).toBeGreaterThanOrEqual(8);
-
-    const accountIds = new Set(fixtureTransactions.map((tx) => tx.accountId));
-    expect(accountIds.size).toBeGreaterThanOrEqual(3);
-  });
-
-  it("references only existing accounts", () => {
+describe("fixture cards", () => {
+  it("represents cards independently from accounts", () => {
     const accountIds = new Set(fixtureAccounts.map((account) => account.id));
+    const accountNames = fixtureAccounts.map((account) => account.name);
 
-    for (const transaction of fixtureTransactions) {
-      expect(accountIds.has(transaction.accountId)).toBe(true);
+    expect(fixtureCards.length).toBeGreaterThanOrEqual(2);
+    expect(accountNames).not.toContain("Visa Rewards");
+    expect(fixtureCards.map((card) => card.name)).toContain("Visa Rewards");
+
+    for (const card of fixtureCards) {
+      expect(accountIds.has(card.id)).toBe(false);
     }
   });
 
-  it("gives every transaction a complete, valid record", () => {
+  it("gives every card identity, limit, outstanding balance, and currency", () => {
+    for (const card of fixtureCards) {
+      expect(card.id).toMatch(/\S/);
+      expect(card.name).toMatch(/\S/);
+      expect(card.issuer).toMatch(/\S/);
+      expect(card.creditLimit).toBeGreaterThan(0);
+      expect(card.outstandingBalance).toBeGreaterThanOrEqual(0);
+      expect(card.currency).toBe("USD");
+    }
+  });
+
+  it("keeps available credit coherent with limit and outstanding balance", () => {
+    for (const card of fixtureCards) {
+      expect(card.availableCredit).toBeCloseTo(
+        card.creditLimit - card.outstandingBalance,
+        2,
+      );
+    }
+  });
+
+  it("uses unique card ids", () => {
+    const ids = fixtureCards.map((card) => card.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+describe("fixture transactions", () => {
+  it("includes representative financial event types", () => {
+    const eventTypes = new Set(
+      fixtureTransactions.map((transaction) => transaction.eventType),
+    );
+
+    expect(fixtureTransactions.length).toBeGreaterThanOrEqual(8);
+    expect(eventTypes).toContain("income");
+    expect(eventTypes).toContain("expense");
+    expect(eventTypes).toContain("transfer");
+    expect(eventTypes).toContain("card_purchase");
+    expect(eventTypes).toContain("card_payment");
+    expect(eventTypes).toContain("investment");
+  });
+
+  it("references only existing accounts and cards", () => {
+    const accountIds = new Set(fixtureAccounts.map((account) => account.id));
+    const cardIds = new Set(fixtureCards.map((card) => card.id));
+
+    for (const transaction of fixtureTransactions) {
+      if (transaction.accountId) {
+        expect(accountIds.has(transaction.accountId)).toBe(true);
+      }
+      if (transaction.counterpartyAccountId) {
+        expect(accountIds.has(transaction.counterpartyAccountId)).toBe(true);
+      }
+      if (transaction.cardId) {
+        expect(cardIds.has(transaction.cardId)).toBe(true);
+      }
+    }
+  });
+
+  it("gives every transaction a complete, deterministic record", () => {
     for (const transaction of fixtureTransactions) {
       expect(transaction.id).toMatch(/\S/);
       expect(transaction.description).toMatch(/\S/);
       expect(transaction.amount).toBeGreaterThan(0);
       expect(transaction.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-      expect(["inflow", "outflow"]).toContain(transaction.type);
+      expect(transaction.currency).toBe("USD");
+      expect(TRANSACTION_EVENT_TYPES).toContain(transaction.eventType);
     }
   });
 
@@ -62,35 +132,45 @@ describe("fixture transactions", () => {
   });
 });
 
-describe("fixture calculations", () => {
-  it("loads the fixture snapshot and calculates overview totals from it", () => {
-    expect(fixtureAccounts.map((account) => account.name)).toEqual([
-      "Everyday Checking",
-      "Emergency Savings",
-      "Visa Rewards",
-    ]);
-    expect(cashTotal(fixtureAccounts)).toBeCloseTo(16736.47, 2);
-    expect(creditOwed(fixtureAccounts)).toBeCloseTo(1842.19, 2);
-    expect(netBalance(fixtureAccounts)).toBeCloseTo(14894.28, 2);
+describe("fixture integrity", () => {
+  it("loads and validates the fixture snapshot", () => {
+    expect(() => {
+      assertValidFinanceData(
+        fixtureAccounts,
+        fixtureCards,
+        fixtureTransactions,
+      );
+    }).not.toThrow();
   });
 
-  it("passes lightweight relationship validation", () => {
-    expect(() => {
-      assertValidFinanceData(fixtureAccounts, fixtureTransactions);
-    }).not.toThrow();
+  it("does not fold investment value into the existing overview totals", () => {
+    const investment = fixtureAccounts.find(
+      (account) => account.type === "investment",
+    );
+
+    expect(investment).toBeDefined();
+    expect(cashTotal(fixtureAccounts)).toBeCloseTo(16916.47, 2);
+    expect(creditOwed(fixtureCards)).toBeCloseTo(2168.59, 2);
+    expect(netBalance(fixtureAccounts, fixtureCards)).toBeCloseTo(14747.88, 2);
+    expect(cashTotal(fixtureAccounts)).not.toBeCloseTo(
+      16916.47 + (investment?.balance ?? 0),
+      2,
+    );
   });
 });
 
 describe("fixture determinism", () => {
-  it("returns the same account and transaction records on every import", async () => {
+  it("returns the same records on every import", async () => {
     const firstAccounts = structuredClone(fixtureAccounts);
+    const firstCards = structuredClone(fixtureCards);
     const firstTransactions = structuredClone(fixtureTransactions);
-
     const reloaded = await import("./fixtures.ts");
 
     expect(reloaded.fixtureAccounts).toEqual(firstAccounts);
+    expect(reloaded.fixtureCards).toEqual(firstCards);
     expect(reloaded.fixtureTransactions).toEqual(firstTransactions);
     expect(reloaded.fixtureAccounts).toBe(fixtureAccounts);
+    expect(reloaded.fixtureCards).toBe(fixtureCards);
     expect(reloaded.fixtureTransactions).toBe(fixtureTransactions);
   });
 });
