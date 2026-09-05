@@ -107,6 +107,53 @@ describe("Finora dashboard", () => {
     expect(within(transactions).getByText("Payroll — Acme Corp")).toBeInTheDocument();
   });
 
+  it("renders accounts and transactions from the provided dataset", () => {
+    render(
+      <Dashboard
+        accounts={[
+          {
+            id: "acc-harbor",
+            name: "Harbor Checking",
+            type: "checking",
+            balance: 100,
+            currency: "USD",
+          },
+        ]}
+        transactions={[
+          {
+            id: "txn-harbor",
+            accountId: "acc-harbor",
+            description: "Harbor Payroll",
+            amount: 10,
+            date: "2026-09-01",
+            type: "inflow",
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getAllByText("Harbor Checking").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("$100.00").length).toBeGreaterThan(0);
+    expect(screen.getByText("Harbor Payroll")).toBeInTheDocument();
+    expect(screen.queryByText("Everyday Checking")).not.toBeInTheDocument();
+    expect(screen.queryByText("Payroll — Acme Corp")).not.toBeInTheDocument();
+  });
+
+  it("filters checking and credit-card transactions by accountId", async () => {
+    const user = userEvent.setup();
+    renderDashboard();
+
+    await user.click(screen.getByRole("button", { name: "Everyday Checking" }));
+    const transactions = screen.getByRole("region", { name: "Recent transactions" });
+    expect(within(transactions).getByText("Payroll — Acme Corp")).toBeInTheDocument();
+    expect(within(transactions).queryByText("Dinner — Riverview")).not.toBeInTheDocument();
+    expect(within(transactions).queryByText("Interest credit")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Visa Rewards" }));
+    expect(within(transactions).getByText("Dinner — Riverview")).toBeInTheDocument();
+    expect(within(transactions).queryByText("Payroll — Acme Corp")).not.toBeInTheDocument();
+  });
+
   it("shows an empty state when a filter has no transactions", async () => {
     const user = userEvent.setup();
     const emptyAccount = {
