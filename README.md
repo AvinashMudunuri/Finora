@@ -13,9 +13,9 @@ The first usable slice is a dashboard that shows:
 - Recent transactions
 - Filtering of those transactions by account
 
-Credit card balances are treated as amounts owed. They reduce the net total instead of being added to cash.
+Overview totals are calculated from the account dataset. Credit card balances are amounts owed, so they reduce the net total.
 
-All numbers come from **deterministic local fixture data**. There is no backend, bank connection, or live account sync.
+All numbers come from **deterministic local fixture data**. Fixture relationships are validated on load. There is no backend, bank connection, or live account sync.
 
 ## Technology
 

@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { cashTotal, creditOwed, netBalance } from "../domain/finance.ts";
+import { assertValidFinanceData } from "../domain/validate.ts";
 import { fixtureAccounts, fixtureTransactions } from "./fixtures.ts";
 
 describe("fixture accounts", () => {
@@ -57,6 +59,25 @@ describe("fixture transactions", () => {
   it("uses unique transaction ids", () => {
     const ids = fixtureTransactions.map((transaction) => transaction.id);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+describe("fixture calculations", () => {
+  it("loads the fixture snapshot and calculates overview totals from it", () => {
+    expect(fixtureAccounts.map((account) => account.name)).toEqual([
+      "Everyday Checking",
+      "Emergency Savings",
+      "Visa Rewards",
+    ]);
+    expect(cashTotal(fixtureAccounts)).toBeCloseTo(16736.47, 2);
+    expect(creditOwed(fixtureAccounts)).toBeCloseTo(1842.19, 2);
+    expect(netBalance(fixtureAccounts)).toBeCloseTo(14894.28, 2);
+  });
+
+  it("passes lightweight relationship validation", () => {
+    expect(() => {
+      assertValidFinanceData(fixtureAccounts, fixtureTransactions);
+    }).not.toThrow();
   });
 });
 

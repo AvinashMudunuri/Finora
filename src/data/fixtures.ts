@@ -1,4 +1,5 @@
 import type { Account, Transaction } from "../domain/types.ts";
+import { assertValidFinanceData } from "../domain/validate.ts";
 
 export const fixtureAccounts: Account[] = [
   {
@@ -122,3 +123,5 @@ export const fixtureTransactions: Transaction[] = [
     type: "inflow",
   },
 ];
+
+assertValidFinanceData(fixtureAccounts, fixtureTransactions);
