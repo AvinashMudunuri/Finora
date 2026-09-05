@@ -1,4 +1,10 @@
-import type { Account, AccountType, Card, Transaction } from "./types.ts";
+import type {
+  Account,
+  AccountType,
+  Card,
+  CardPaymentStatus,
+  Transaction,
+} from "./types.ts";
 
 export function cashTotal(accounts: Account[]): number {
   return accounts.reduce((total, account) => {
@@ -81,6 +87,33 @@ export function getRecentTransactions(
       return right.id.localeCompare(left.id);
     })
     .slice(0, limit);
+}
+
+export function getCardTransactions(
+  transactions: Transaction[],
+  cardId: string,
+): Transaction[] {
+  return [...transactions]
+    .filter((transaction) => transaction.cardId === cardId)
+    .sort((left, right) => {
+      if (left.date !== right.date) {
+        return left.date < right.date ? 1 : -1;
+      }
+
+      return right.id.localeCompare(left.id);
+    });
+}
+
+export function paymentStatusLabel(status: CardPaymentStatus): string {
+  if (status === "current") {
+    return "Current";
+  }
+
+  if (status === "due") {
+    return "Due";
+  }
+
+  return "Overdue";
 }
 
 export function formatDate(isoDate: string): string {
