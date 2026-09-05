@@ -4,7 +4,13 @@ import type {
   Card,
   CardPaymentStatus,
   Transaction,
+  TransactionEventType,
 } from "./types.ts";
+
+export type TransactionListFilter =
+  | { kind: "all" }
+  | { kind: "party"; id: string }
+  | { kind: "event"; eventType: TransactionEventType };
 
 export function cashTotal(accounts: Account[]): number {
   return accounts.reduce((total, account) => {
@@ -62,46 +68,137 @@ export function signedAmount(
     : transaction.amount;
 }
 
+export function listTransactions(
+  transactions: Transaction[],
+  filter: TransactionListFilter = { kind: "all" },
+): Transaction[] {
+  return transactions
+    .filter((transaction) => matchesTransactionFilter(transaction, filter))
+    .sort(compareTransactionsNewestFirst);
+}
+
 export function getRecentTransactions(
   transactions: Transaction[],
   filterId: string = "all",
   limit = 10,
 ): Transaction[] {
-  const filtered =
-    filterId === "all"
-      ? transactions
-      : transactions.filter((transaction) => {
-          return (
-            transaction.accountId === filterId ||
-            transaction.counterpartyAccountId === filterId ||
-            transaction.cardId === filterId
-          );
-        });
-
-  return [...filtered]
-    .sort((left, right) => {
-      if (left.date !== right.date) {
-        return left.date < right.date ? 1 : -1;
-      }
-
-      return right.id.localeCompare(left.id);
-    })
-    .slice(0, limit);
+  return listTransactions(
+    transactions,
+    filterId === "all" ? { kind: "all" } : { kind: "party", id: filterId },
+  ).slice(0, limit);
 }
 
 export function getCardTransactions(
   transactions: Transaction[],
   cardId: string,
 ): Transaction[] {
-  return [...transactions]
-    .filter((transaction) => transaction.cardId === cardId)
-    .sort((left, right) => {
-      if (left.date !== right.date) {
-        return left.date < right.date ? 1 : -1;
-      }
+  return listTransactions(transactions).filter(
+    (transaction) => transaction.cardId === cardId,
+  );
+}
 
-      return right.id.localeCompare(left.id);
-    });
+export function eventTypeLabel(eventType: TransactionEventType): string {
+  if (eventType === "card_purchase") {
+    return "Card purchase";
+  }
+
+  if (eventType === "card_payment") {
+    return "Card payment";
+  }
+
+  if (eventType === "income") {
+    return "Income";
+  }
+
+  if (eventType === "expense") {
+    return "Expense";
+  }
+
+  if (eventType === "transfer") {
+    return "Transfer";
+  }
+
+  return "Investment";
+}
+
+export function transactionContext(
+  transaction: Transaction,
+  accountsById: Map<string, Account>,
+  cardsById: Map<string, Card>,
+): string {
+  if (transaction.eventType === "card_purchase" && transaction.cardId) {
+    return cardsById.get(transaction.cardId)?.name ?? "Unknown card";
+  }
+
+  if (transaction.eventType === "card_payment") {
+    const account = transaction.accountId
+      ? accountsById.get(transaction.accountId)?.name
+      : undefined;
+    const card = transaction.cardId
+      ? cardsById.get(transaction.cardId)?.name
+      : undefined;
+
+    if (account && card) {
+      return `${account} → ${card}`;
+    }
+
+    return account ?? card ?? "Unknown account";
+  }
+
+  if (transaction.eventType === "transfer") {
+    const source = transaction.accountId
+      ? accountsById.get(transaction.accountId)?.name
+      : undefined;
+    const destination = transaction.counterpartyAccountId
+      ? accountsById.get(transaction.counterpartyAccountId)?.name
+      : undefined;
+
+    if (source && destination) {
+      return `${source} → ${destination}`;
+    }
+
+    return source ?? destination ?? "Unknown account";
+  }
+
+  if (transaction.accountId) {
+    return accountsById.get(transaction.accountId)?.name ?? "Unknown account";
+  }
+
+  if (transaction.cardId) {
+    return cardsById.get(transaction.cardId)?.name ?? "Unknown card";
+  }
+
+  return "Unknown account";
+}
+
+function matchesTransactionFilter(
+  transaction: Transaction,
+  filter: TransactionListFilter,
+): boolean {
+  if (filter.kind === "all") {
+    return true;
+  }
+
+  if (filter.kind === "event") {
+    return transaction.eventType === filter.eventType;
+  }
+
+  return (
+    transaction.accountId === filter.id ||
+    transaction.counterpartyAccountId === filter.id ||
+    transaction.cardId === filter.id
+  );
+}
+
+function compareTransactionsNewestFirst(
+  left: Transaction,
+  right: Transaction,
+): number {
+  if (left.date !== right.date) {
+    return left.date < right.date ? 1 : -1;
+  }
+
+  return right.id.localeCompare(left.id);
 }
 
 export function paymentStatusLabel(status: CardPaymentStatus): string {

@@ -39,4 +39,43 @@ describe("Finora app navigation", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Overview" })).toBeInTheDocument();
   });
+
+  it("opens the transactions experience from the primary navigation", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Transactions" }));
+
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Transactions" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Transaction list" })).toBeInTheDocument();
+  });
+
+  it("opens a selected transaction from the dashboard", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(
+      screen.getByRole("button", { name: "View Payroll — Acme Corp" }),
+    );
+
+    const detail = screen.getByRole("region", { name: "Payroll — Acme Corp" });
+    expect(within(detail).getByText("Income")).toBeInTheDocument();
+    expect(within(detail).getByText("Everyday Checking")).toBeInTheDocument();
+  });
+
+  it("opens a card transaction in the transactions experience", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "View Visa Rewards" }));
+    await user.click(
+      screen.getByRole("button", { name: "View Dinner — Riverview" }),
+    );
+
+    const detail = screen.getByRole("region", { name: "Dinner — Riverview" });
+    expect(within(detail).getByText("Card purchase")).toBeInTheDocument();
+    expect(within(detail).getByText("Visa Rewards")).toBeInTheDocument();
+  });
 });

@@ -350,9 +350,30 @@ button {
   border-top: 1px solid var(--line);
 }
 
-.transaction-row:first-child {
+.transaction-list > li:first-child .transaction-row {
   border-top: 0;
   padding-top: 0.15rem;
+}
+
+.transaction-row-button {
+  width: 100%;
+  margin: 0;
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  border-radius: 10px;
+}
+
+.transaction-row-button.is-selected {
+  background: #eef5f1;
+  box-shadow: inset 0 0 0 1px rgba(31, 92, 69, 0.18);
+  padding-left: 0.7rem;
+  padding-right: 0.7rem;
 }
 
 .transaction-description {
