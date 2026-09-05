@@ -1,12 +1,17 @@
 import { useMemo, useState } from "react";
 import {
+  calculateCardUtilization,
+  calculateMonthlySpending,
+  calculateNetWorth,
+  latestActivityMonth,
+} from "../domain/calculations.ts";
+import {
   accountTypeLabel,
-  cashTotal,
-  creditOwed,
   formatCurrency,
   formatDate,
+  formatMonth,
+  formatUtilization,
   getRecentTransactions,
-  netBalance,
   signedAmount,
   transactionDirection,
   transactionTypeLabel,
@@ -35,10 +40,18 @@ export function Dashboard({ accounts, cards, transactions }: DashboardProps) {
     return new Map(cards.map((card) => [card.id, card]));
   }, [cards]);
 
-  const currency = accounts[0]?.currency ?? cards[0]?.currency ?? "USD";
-  const net = netBalance(accounts, cards);
-  const cash = cashTotal(accounts);
-  const credit = creditOwed(cards);
+  const worth = calculateNetWorth(accounts, cards);
+  const activityMonth = latestActivityMonth(transactions);
+  const spending = calculateMonthlySpending(
+    transactions,
+    activityMonth?.year ?? 0,
+    activityMonth?.month ?? 1,
+  );
+  const cardUtilization = useMemo(() => {
+    return new Map(
+      calculateCardUtilization(cards).map((result) => [result.cardId, result]),
+    );
+  }, [cards]);
 
   return (
     <div className="app-shell">
@@ -61,8 +74,8 @@ export function Dashboard({ accounts, cards, transactions }: DashboardProps) {
           <div className="panel-header">
             <h2 id="overview-heading">Overview</h2>
             <p className="panel-copy">
-              Credit card balances are amounts owed, so they reduce the net
-              total instead of being added to cash.
+              Net worth is assets minus liabilities. Monthly spending counts
+              expenses and card purchases only.
             </p>
           </div>
 
@@ -71,19 +84,34 @@ export function Dashboard({ accounts, cards, transactions }: DashboardProps) {
           ) : (
             <div className="overview-grid">
               <article className="stat-card stat-card-primary">
-                <h3>Net balance</h3>
-                <p className="stat-value">{formatCurrency(net, currency)}</p>
-                <p className="stat-note">Cash minus credit card balances</p>
+                <h3>Net worth</h3>
+                <p className="stat-value">
+                  {formatCurrency(worth.netWorth, worth.currency)}
+                </p>
+                <p className="stat-note">
+                  {formatCurrency(worth.assets, worth.currency)} assets −{" "}
+                  {formatCurrency(worth.liabilities, worth.currency)} liabilities
+                </p>
               </article>
               <article className="stat-card">
-                <h3>Cash</h3>
-                <p className="stat-value">{formatCurrency(cash, currency)}</p>
-                <p className="stat-note">Bank and cash accounts</p>
+                <h3>Monthly spending</h3>
+                <p className="stat-value">
+                  {formatCurrency(spending.total, spending.currency)}
+                </p>
+                <p className="stat-note">
+                  {activityMonth
+                    ? formatMonth(spending.year, spending.month)
+                    : "No transactions in this snapshot"}
+                </p>
               </article>
               <article className="stat-card">
                 <h3>Credit cards</h3>
                 <p className="stat-value stat-value-negative">
-                  {formatCurrency(-credit, currency, credit !== 0)}
+                  {formatCurrency(
+                    -worth.liabilities,
+                    worth.currency,
+                    worth.liabilities !== 0,
+                  )}
                 </p>
                 <p className="stat-note">Current balances owed</p>
               </article>
@@ -134,7 +162,10 @@ export function Dashboard({ accounts, cards, transactions }: DashboardProps) {
                       {formatCurrency(card.outstandingBalance, card.currency)}
                     </p>
                     <p className="account-note">
-                      Amount owed · {card.currency}
+                      {formatUtilization(
+                        cardUtilization.get(card.id)?.utilization ?? null,
+                      )}{" "}
+                      utilized · {card.currency}
                     </p>
                   </article>
                 </li>

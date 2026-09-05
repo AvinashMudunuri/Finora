@@ -112,3 +112,21 @@ export function accountTypeLabel(type: AccountType): string {
 export function transactionTypeLabel(direction: "inflow" | "outflow"): string {
   return direction === "inflow" ? "Inflow" : "Outflow";
 }
+
+export function formatUtilization(utilization: number | null): string {
+  if (utilization === null) {
+    return "—";
+  }
+
+  return new Intl.NumberFormat("en-US", {
+    style: "percent",
+    maximumFractionDigits: 1,
+  }).format(utilization);
+}
+
+export function formatMonth(year: number, month: number): string {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    year: "numeric",
+  }).format(new Date(year, month - 1, 1));
+}
