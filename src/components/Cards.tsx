@@ -75,7 +75,7 @@ export function Cards({
           {cards.length === 0 ? (
             <p className="empty-state">No cards in this snapshot.</p>
           ) : (
-            <ul className="account-grid">
+            <ul className="account-grid card-list-grid">
               {cards.map((card) => {
                 const utilization = utilizationById.get(card.id);
 
