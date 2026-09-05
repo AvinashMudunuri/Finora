@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { cashTotal, creditOwed, netBalance } from "../domain/finance.ts";
+import { calculateNetWorth } from "../domain/calculations.ts";
+import { cashTotal, creditOwed } from "../domain/finance.ts";
 import { ACCOUNT_TYPES, TRANSACTION_EVENT_TYPES } from "../domain/types.ts";
 import { assertValidFinanceData } from "../domain/validate.ts";
 import {
@@ -143,19 +144,18 @@ describe("fixture integrity", () => {
     }).not.toThrow();
   });
 
-  it("does not fold investment value into the existing overview totals", () => {
+  it("keeps liquid cash separate from net worth", () => {
     const investment = fixtureAccounts.find(
       (account) => account.type === "investment",
     );
+    const worth = calculateNetWorth(fixtureAccounts, fixtureCards);
 
     expect(investment).toBeDefined();
     expect(cashTotal(fixtureAccounts)).toBeCloseTo(16916.47, 2);
     expect(creditOwed(fixtureCards)).toBeCloseTo(2168.59, 2);
-    expect(netBalance(fixtureAccounts, fixtureCards)).toBeCloseTo(14747.88, 2);
-    expect(cashTotal(fixtureAccounts)).not.toBeCloseTo(
-      16916.47 + (investment?.balance ?? 0),
-      2,
-    );
+    expect(worth.assets).toBeCloseTo(25337.02, 2);
+    expect(worth.netWorth).toBeCloseTo(23168.43, 2);
+    expect(cashTotal(fixtureAccounts)).not.toBeCloseTo(worth.assets, 2);
   });
 });
 

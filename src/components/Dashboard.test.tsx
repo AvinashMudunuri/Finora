@@ -6,7 +6,15 @@ import {
   fixtureCards,
   fixtureTransactions,
 } from "../data/fixtures.ts";
-import { formatCurrency, netBalance, signedAmount } from "../domain/finance.ts";
+import {
+  calculateMonthlySpending,
+  calculateNetWorth,
+} from "../domain/calculations.ts";
+import {
+  formatCurrency,
+  formatUtilization,
+  signedAmount,
+} from "../domain/finance.ts";
 import { Dashboard } from "./Dashboard.tsx";
 
 function renderDashboard() {
@@ -58,17 +66,29 @@ describe("Finora dashboard", () => {
     }
   });
 
-  it("shows a net balance that subtracts card amounts owed", () => {
+  it("shows calculated net worth, monthly spending, and card utilization", () => {
     renderDashboard();
 
     const overview = screen.getByRole("region", { name: "Overview" });
-    const expected = formatCurrency(
-      netBalance(fixtureAccounts, fixtureCards),
-      "USD",
+    const worth = calculateNetWorth(fixtureAccounts, fixtureCards);
+    const septemberSpending = calculateMonthlySpending(
+      fixtureTransactions,
+      2026,
+      9,
     );
 
-    expect(within(overview).getByText(expected)).toBeInTheDocument();
-    expect(within(overview).queryByText("$8,420.55")).not.toBeInTheDocument();
+    expect(
+      within(overview).getByText(formatCurrency(worth.netWorth, worth.currency)),
+    ).toBeInTheDocument();
+    expect(
+      within(overview).getByText(formatCurrency(septemberSpending.total, "USD")),
+    ).toBeInTheDocument();
+    expect(within(overview).getByText("September 2026")).toBeInTheDocument();
+    expect(within(overview).queryByText("$2,049.61")).not.toBeInTheDocument();
+
+    const accounts = screen.getByRole("region", { name: "Accounts" });
+    expect(within(accounts).getByText(`${formatUtilization(1842.19 / 5000)} utilized · USD`)).toBeInTheDocument();
+    expect(within(accounts).getByText(`${formatUtilization(326.4 / 2500)} utilized · USD`)).toBeInTheDocument();
   });
 
   it("lists recent transactions with description, party, date, amount, and type", () => {

@@ -14,7 +14,13 @@ The first domain slice now includes:
 - **Card** — first-class credit cards, not account subtypes
 - **Transaction** — income, expense, transfer, card purchase, card payment, and investment events
 
-Balances live on the account or card they belong to. Overview cash and net figures still use the existing dashboard math (bank + cash, minus card amounts owed). They are not a net-worth engine.
+Balances live on the account or card they belong to. The dashboard now calculates:
+
+- **Net worth** = bank + cash + investment − card outstanding balances
+- **Card utilization** = outstanding balance / credit limit
+- **Monthly spending** = expenses + card purchases in the selected month
+
+Income, transfers, card payments, and investment events are not spending. Credit limits are not assets or liabilities. These calculations assume the fixture snapshot is a single currency (USD) and do not convert FX.
 
 All numbers come from **deterministic local fixture data**. Relationships are validated on load. There is no backend, bank connection, or live account sync.
 
@@ -24,8 +30,8 @@ These stay open, as in the PRD:
 
 - Geography — fixtures use USD as development data only
 - Checking vs savings — both are `bank` accounts until the PRD decides otherwise
-- Investment depth and net worth — investment value is stored but not folded into overview totals
-- Card utilization, rewards, and lifecycle rules
+- Investment depth beyond a single current value
+- Card utilization thresholds, rewards, and lifecycle rules
 - Transaction categorization beyond explicit event types
 - Manual / imported / live-connected data
 
