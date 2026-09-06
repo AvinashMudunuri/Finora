@@ -9,12 +9,13 @@ import {
 import {
   calculateAssetBreakdown,
   calculateLiquidAssets,
-  calculateMonthlyIncome,
   calculateMonthlySavings,
   calculateMonthlySpending,
   calculateNetWorth,
   calculateSpendingChange,
+  latestActivityMonth,
 } from "../domain/calculations.ts";
+import type { Account, Transaction } from "../domain/types.ts";
 import {
   formatCurrency,
   formatMonth,
@@ -77,19 +78,10 @@ describe("Finora dashboard", () => {
 
     const overview = screen.getByRole("region", { name: "Overview" });
     const worth = calculateNetWorth(fixtureAccounts, fixtureCards);
-    const septemberSpending = calculateMonthlySpending(
-      fixtureTransactions,
-      2026,
-      9,
-    );
 
     expect(
       within(overview).getByText(formatCurrency(worth.netWorth, worth.currency)),
     ).toBeInTheDocument();
-    expect(
-      within(overview).getByText(formatCurrency(septemberSpending.total, "USD")),
-    ).toBeInTheDocument();
-    expect(within(overview).getByText("September 2026")).toBeInTheDocument();
     expect(within(overview).queryByText("$2,049.61")).not.toBeInTheDocument();
 
     const accounts = screen.getByRole("region", { name: "Accounts" });
@@ -248,20 +240,200 @@ describe("Finora dashboard", () => {
     expect(within(overview).getByText("Assets − liabilities")).toBeInTheDocument();
   });
 
-  it("shows monthly income and savings for the latest fixture month", () => {
+  it("shows monthly income, spending, and savings for the same latest activity month", () => {
     renderDashboard();
 
-    const overview = screen.getByRole("region", { name: "Overview" });
-    const income = calculateMonthlyIncome(fixtureTransactions, 2026, 9);
-    const savings = calculateMonthlySavings(fixtureTransactions, 2026, 9);
+    const period = latestActivityMonth(fixtureTransactions);
+    const flow = calculateMonthlySavings(
+      fixtureTransactions,
+      period!.year,
+      period!.month,
+    );
+    const region = screen.getByRole("region", { name: "Monthly flow" });
 
+    expect(period).not.toBeNull();
+    expect(flow.year).toBe(period!.year);
+    expect(flow.month).toBe(period!.month);
+    expect(flow.savings).toBe(flow.income - flow.spending);
     expect(
-      within(overview).getByText(formatCurrency(income.total, "USD")),
+      within(region).getByText(formatMonth(period!.year, period!.month)),
     ).toBeInTheDocument();
     expect(
-      within(overview).getByText(formatCurrency(savings.savings, "USD")),
+      within(region).getByRole("heading", { name: "Income" }),
     ).toBeInTheDocument();
-    expect(within(overview).queryByText("$4.12")).not.toBeInTheDocument();
+    expect(
+      within(region).getByRole("heading", { name: "Spending" }),
+    ).toBeInTheDocument();
+    expect(
+      within(region).getByRole("heading", { name: "Savings" }),
+    ).toBeInTheDocument();
+    expect(
+      within(region).getByText(formatCurrency(flow.income, flow.currency)),
+    ).toBeInTheDocument();
+    expect(
+      within(region).getByText(formatCurrency(flow.spending, flow.currency)),
+    ).toBeInTheDocument();
+    expect(
+      within(region).getByText(formatCurrency(flow.savings, flow.currency)),
+    ).toBeInTheDocument();
+    expect(within(region).queryByText("$4.12")).not.toBeInTheDocument();
+    expect(within(region).queryByText("$2,049.61")).not.toBeInTheDocument();
+  });
+
+  it("uses existing income, spending, and savings semantics for the latest month", () => {
+    const transactions: Transaction[] = [
+      {
+        id: "txn-income",
+        date: "2026-12-20",
+        description: "Payroll",
+        amount: 1000,
+        currency: "USD",
+        eventType: "income",
+        accountId: "acc-harbor",
+        counterpartyAccountId: null,
+        cardId: null,
+      },
+      {
+        id: "txn-expense",
+        date: "2026-12-21",
+        description: "Groceries",
+        amount: 80,
+        currency: "USD",
+        eventType: "expense",
+        accountId: "acc-harbor",
+        counterpartyAccountId: null,
+        cardId: null,
+      },
+      {
+        id: "txn-card",
+        date: "2026-12-22",
+        description: "Card dinner",
+        amount: 40,
+        currency: "USD",
+        eventType: "card_purchase",
+        accountId: null,
+        counterpartyAccountId: null,
+        cardId: "card-harbor",
+      },
+      {
+        id: "txn-transfer",
+        date: "2026-12-23",
+        description: "To savings",
+        amount: 200,
+        currency: "USD",
+        eventType: "transfer",
+        accountId: "acc-harbor",
+        counterpartyAccountId: "acc-save",
+        cardId: null,
+      },
+      {
+        id: "txn-payment",
+        date: "2026-12-24",
+        description: "Card payment",
+        amount: 40,
+        currency: "USD",
+        eventType: "card_payment",
+        accountId: "acc-harbor",
+        counterpartyAccountId: null,
+        cardId: "card-harbor",
+      },
+      {
+        id: "txn-invest",
+        date: "2026-12-25",
+        description: "Brokerage buy",
+        amount: 300,
+        currency: "USD",
+        eventType: "investment",
+        accountId: "acc-invest",
+        counterpartyAccountId: null,
+        cardId: null,
+      },
+      {
+        id: "txn-jan",
+        date: "2027-01-02",
+        description: "January coffee",
+        amount: 6,
+        currency: "USD",
+        eventType: "expense",
+        accountId: "acc-harbor",
+        counterpartyAccountId: null,
+        cardId: null,
+      },
+    ];
+    const accounts: Account[] = [
+      {
+        id: "acc-harbor",
+        name: "Harbor Checking",
+        type: "bank",
+        balance: 100,
+        currency: "USD",
+      },
+    ];
+    const period = latestActivityMonth(transactions);
+    const flow = calculateMonthlySavings(
+      transactions,
+      period!.year,
+      period!.month,
+    );
+    const spending = calculateMonthlySpending(
+      transactions,
+      period!.year,
+      period!.month,
+    );
+
+    render(
+      <Dashboard
+        accounts={accounts}
+        cards={[]}
+        transactions={transactions}
+      />,
+    );
+
+    const region = screen.getByRole("region", { name: "Monthly flow" });
+    expect(period).toEqual({ year: 2027, month: 1 });
+    expect(flow.income).toBe(0);
+    expect(flow.spending).toBe(6);
+    expect(flow.savings).toBe(-6);
+    expect(spending.total).toBe(6);
+    expect(
+      within(region).getByText(formatMonth(period!.year, period!.month)),
+    ).toBeInTheDocument();
+    expect(
+      within(region).getByText(formatCurrency(flow.income, flow.currency)),
+    ).toBeInTheDocument();
+    expect(
+      within(region).getByText(formatCurrency(flow.spending, flow.currency)),
+    ).toBeInTheDocument();
+    expect(
+      within(region).getByText(formatCurrency(flow.savings, flow.currency)),
+    ).toBeInTheDocument();
+    expect(within(region).queryByText("$1,000.00")).not.toBeInTheDocument();
+    expect(within(region).queryByText("$80.00")).not.toBeInTheDocument();
+  });
+
+  it("shows zero monthly flow when there are no transactions", () => {
+    render(
+      <Dashboard
+        accounts={[
+          {
+            id: "acc-harbor",
+            name: "Harbor Checking",
+            type: "bank",
+            balance: 100,
+            currency: "USD",
+          },
+        ]}
+        cards={[]}
+        transactions={[]}
+      />,
+    );
+
+    const region = screen.getByRole("region", { name: "Monthly flow" });
+    expect(
+      within(region).getByText("No transactions in this snapshot"),
+    ).toBeInTheDocument();
+    expect(within(region).getAllByText("$0.00").length).toBe(3);
+    expect(screen.queryByRole("region", { name: "Spending change" })).not.toBeInTheDocument();
   });
 
   it("opens accounts and cards from the financial-position cards when callbacks are provided", async () => {
