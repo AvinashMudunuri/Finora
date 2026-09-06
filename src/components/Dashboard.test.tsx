@@ -13,9 +13,11 @@ import {
   calculateMonthlySavings,
   calculateMonthlySpending,
   calculateNetWorth,
+  calculateSpendingChange,
 } from "../domain/calculations.ts";
 import {
   formatCurrency,
+  formatMonth,
   formatUtilization,
   signedAmount,
 } from "../domain/finance.ts";
@@ -282,5 +284,145 @@ describe("Finora dashboard", () => {
 
     expect(onShowAccounts).toHaveBeenCalledTimes(1);
     expect(onShowCards).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows a spending change insight from the calculated fixture result", () => {
+    renderDashboard();
+
+    const change = calculateSpendingChange(fixtureTransactions);
+    expect(change).not.toBeNull();
+
+    const insight = screen.getByRole("region", { name: "Spending change" });
+    const overview = screen.getByRole("region", { name: "Overview" });
+
+    expect(within(insight).getByText("Spending decreased")).toBeInTheDocument();
+    expect(insight).toHaveTextContent(
+      formatCurrency(change!.currentSpending, change!.currency),
+    );
+    expect(insight).toHaveTextContent(
+      formatCurrency(change!.previousSpending, change!.currency),
+    );
+    expect(insight).toHaveTextContent(
+      formatMonth(change!.currentPeriod.year, change!.currentPeriod.month),
+    );
+    expect(insight).toHaveTextContent(
+      formatMonth(change!.previousPeriod.year, change!.previousPeriod.month),
+    );
+    expect(within(overview).queryByText("Spending decreased")).not.toBeInTheDocument();
+    expect(
+      within(overview).queryByText(
+        formatCurrency(change!.previousSpending, change!.currency),
+      ),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders increased and unchanged insight copy from the calculated direction", () => {
+    const increased = [
+      {
+        id: "txn-prev",
+        date: "2026-08-10",
+        description: "Earlier coffee",
+        amount: 10,
+        currency: "USD" as const,
+        eventType: "expense" as const,
+        accountId: "acc-harbor",
+        counterpartyAccountId: null,
+        cardId: null,
+      },
+      {
+        id: "txn-curr",
+        date: "2026-09-04",
+        description: "Later coffee",
+        amount: 25,
+        currency: "USD" as const,
+        eventType: "expense" as const,
+        accountId: "acc-harbor",
+        counterpartyAccountId: null,
+        cardId: null,
+      },
+    ];
+
+    const { rerender } = render(
+      <Dashboard
+        accounts={[
+          {
+            id: "acc-harbor",
+            name: "Harbor Checking",
+            type: "bank",
+            balance: 100,
+            currency: "USD",
+          },
+        ]}
+        cards={[]}
+        transactions={increased}
+      />,
+    );
+
+    const increasedChange = calculateSpendingChange(increased);
+    expect(increasedChange?.direction).toBe("increased");
+    expect(
+      screen.getByRole("region", { name: "Spending change" }),
+    ).toHaveTextContent("Spending increased");
+    expect(
+      screen.getByRole("region", { name: "Spending change" }),
+    ).toHaveTextContent(
+      formatCurrency(
+        increasedChange!.currentSpending,
+        increasedChange!.currency,
+      ),
+    );
+
+    const unchanged = [
+      increased[0]!,
+      {
+        ...increased[1]!,
+        id: "txn-same",
+        amount: 10,
+        description: "Same coffee",
+      },
+    ];
+
+    rerender(
+      <Dashboard
+        accounts={[
+          {
+            id: "acc-harbor",
+            name: "Harbor Checking",
+            type: "bank",
+            balance: 100,
+            currency: "USD",
+          },
+        ]}
+        cards={[]}
+        transactions={unchanged}
+      />,
+    );
+
+    expect(calculateSpendingChange(unchanged)?.direction).toBe("unchanged");
+    expect(
+      screen.getByRole("region", { name: "Spending change" }),
+    ).toHaveTextContent("Spending unchanged");
+  });
+
+  it("does not render a spending change insight without a latest activity month", () => {
+    render(
+      <Dashboard
+        accounts={[
+          {
+            id: "acc-harbor",
+            name: "Harbor Checking",
+            type: "bank",
+            balance: 100,
+            currency: "USD",
+          },
+        ]}
+        cards={[]}
+        transactions={[]}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("region", { name: "Spending change" }),
+    ).not.toBeInTheDocument();
   });
 });

@@ -217,6 +217,70 @@ export function listMonthlySpendingTransactions(
     .sort(compareNewestFirst);
 }
 
+export type SpendingChangeDirection = "increased" | "decreased" | "unchanged";
+
+export type SpendingChangeResult = {
+  currentPeriod: { year: number; month: number };
+  previousPeriod: { year: number; month: number };
+  currentSpending: number;
+  previousSpending: number;
+  absoluteChange: number;
+  direction: SpendingChangeDirection;
+  currency: CurrencyCode;
+};
+
+export function calculateSpendingChange(
+  transactions: Transaction[],
+): SpendingChangeResult | null {
+  const currentPeriod = latestActivityMonth(transactions);
+
+  if (!currentPeriod) {
+    return null;
+  }
+
+  const previousPeriod = previousCalendarMonth(
+    currentPeriod.year,
+    currentPeriod.month,
+  );
+  const current = calculateMonthlySpending(
+    transactions,
+    currentPeriod.year,
+    currentPeriod.month,
+  );
+  const previous = calculateMonthlySpending(
+    transactions,
+    previousPeriod.year,
+    previousPeriod.month,
+  );
+  const absoluteChange = Math.abs(current.total - previous.total);
+
+  return {
+    currentPeriod,
+    previousPeriod,
+    currentSpending: current.total,
+    previousSpending: previous.total,
+    absoluteChange,
+    direction:
+      current.total > previous.total
+        ? "increased"
+        : current.total < previous.total
+          ? "decreased"
+          : "unchanged",
+    currency: current.currency,
+  };
+}
+
+function previousCalendarMonth(
+  year: number,
+  month: number,
+): { year: number; month: number } {
+  if (month === 1) {
+    return { year: year - 1, month: 12 };
+  }
+
+  return { year, month: month - 1 };
+}
+
 export function latestActivityMonth(
   transactions: Transaction[],
 ): { year: number; month: number } | null {

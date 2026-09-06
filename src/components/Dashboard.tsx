@@ -6,7 +6,10 @@ import {
   calculateMonthlySavings,
   calculateMonthlySpending,
   calculateNetWorth,
+  calculateSpendingChange,
   latestActivityMonth,
+  type SpendingChangeDirection,
+  type SpendingChangeResult,
 } from "../domain/calculations.ts";
 import {
   accountTypeLabel,
@@ -79,6 +82,7 @@ export function Dashboard({
     selectedYear,
     selectedMonth,
   );
+  const spendingChange = calculateSpendingChange(transactions);
   const cardUtilization = useMemo(() => {
     return new Map(
       calculateCardUtilization(cards).map((result) => [result.cardId, result]),
@@ -246,6 +250,32 @@ export function Dashboard({
             </div>
           )}
         </section>
+
+        {spendingChange ? (
+          <section className="panel insight-panel" aria-labelledby="spending-change-heading">
+            <div className="panel-header">
+              <p className="insight-kicker">Insight</p>
+              <h2 id="spending-change-heading">Spending change</h2>
+              <p className="panel-copy">
+                What changed between the latest activity month and the month
+                before it.
+              </p>
+            </div>
+            <article className="insight-card">
+              <h3>{spendingChangeHeading(spendingChange.direction)}</h3>
+              <p className="insight-amount">
+                {formatCurrency(
+                  spendingChange.absoluteChange,
+                  spendingChange.currency,
+                )}
+              </p>
+              <p className="stat-note">{spendingChangeMagnitude(spendingChange.direction)}</p>
+              <p className="insight-body">
+                {spendingChangeSummary(spendingChange)}
+              </p>
+            </article>
+          </section>
+        ) : null}
 
         <section className="panel" aria-labelledby="accounts-heading">
           <div className="panel-header">
@@ -478,5 +508,48 @@ export function Dashboard({
       </main>
     </div>
   );
+}
+
+function spendingChangeMagnitude(direction: SpendingChangeDirection): string {
+  if (direction === "increased") {
+    return "More than the previous month";
+  }
+
+  if (direction === "decreased") {
+    return "Less than the previous month";
+  }
+
+  return "Same as the previous month";
+}
+
+function spendingChangeHeading(direction: SpendingChangeDirection): string {
+  if (direction === "increased") {
+    return "Spending increased";
+  }
+
+  if (direction === "decreased") {
+    return "Spending decreased";
+  }
+
+  return "Spending unchanged";
+}
+
+function spendingChangeSummary(change: SpendingChangeResult): string {
+  const current = formatCurrency(change.currentSpending, change.currency);
+  const previous = formatCurrency(change.previousSpending, change.currency);
+  const currentMonth = formatMonth(
+    change.currentPeriod.year,
+    change.currentPeriod.month,
+  );
+  const previousMonth = formatMonth(
+    change.previousPeriod.year,
+    change.previousPeriod.month,
+  );
+
+  if (change.direction === "unchanged") {
+    return `You spent ${current} in ${currentMonth}, the same as in ${previousMonth}.`;
+  }
+
+  return `You spent ${current} in ${currentMonth}, compared with ${previous} in ${previousMonth}.`;
 }
 

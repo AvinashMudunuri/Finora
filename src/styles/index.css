@@ -457,6 +457,49 @@ button {
   outline-offset: 2px;
 }
 
+.insight-panel {
+  border-color: #c7d4c8;
+  background: linear-gradient(180deg, #f3f7f3 0%, var(--surface) 42%);
+}
+
+.insight-kicker {
+  margin-bottom: 0.2rem;
+  color: var(--accent-strong);
+  font-size: 0.75rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.insight-card {
+  border: 1px solid #d3ddd4;
+  border-left: 4px solid var(--accent);
+  border-radius: 14px;
+  padding: 1rem 1.05rem 1.05rem;
+  background: #fff;
+}
+
+.insight-card h3 {
+  font-size: clamp(1.2rem, 2.6vw, 1.45rem);
+  letter-spacing: -0.03em;
+  text-transform: none;
+}
+
+.insight-amount {
+  margin: 0.45rem 0 0.4rem;
+  font-family: var(--mono-number);
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(1.35rem, 2.8vw, 1.7rem);
+  font-weight: 650;
+  letter-spacing: -0.03em;
+}
+
+.insight-body {
+  max-width: 38rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
 .month-controls {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
