@@ -13,6 +13,7 @@ import {
   formatUtilization,
   getRecentTransactions,
   signedAmount,
+  transactionContext,
   transactionDirection,
   transactionTypeLabel,
 } from "../domain/finance.ts";
@@ -24,7 +25,9 @@ export type DashboardProps = {
   cards: Card[];
   transactions: Transaction[];
   onShowCards?: () => void;
+  onShowTransactions?: () => void;
   onOpenCard?: (cardId: string) => void;
+  onOpenTransaction?: (transactionId: string) => void;
 };
 
 export function Dashboard({
@@ -32,7 +35,9 @@ export function Dashboard({
   cards,
   transactions,
   onShowCards,
+  onShowTransactions,
   onOpenCard,
+  onOpenTransaction,
 }: DashboardProps) {
   const [accountFilter, setAccountFilter] = useState("all");
 
@@ -69,6 +74,9 @@ export function Dashboard({
         onShowDashboard={() => undefined}
         onShowCards={() => {
           onShowCards?.();
+        }}
+        onShowTransactions={() => {
+          onShowTransactions?.();
         }}
       />
 
@@ -275,16 +283,15 @@ export function Dashboard({
               {recentTransactions.map((transaction) => {
                 const direction = transactionDirection(transaction, accountFilter);
                 const amount = signedAmount(transaction, accountFilter);
-
-                return (
-                  <li key={transaction.id} className="transaction-row">
+                const row = (
+                  <>
                     <div className="transaction-main">
                       <p className="transaction-description">
                         {transaction.description}
                       </p>
                       <p className="transaction-meta">
                         <span>
-                          {transactionPartyName(
+                          {transactionContext(
                             transaction,
                             accountsById,
                             cardsById,
@@ -314,6 +321,25 @@ export function Dashboard({
                         {transactionTypeLabel(direction)}
                       </p>
                     </div>
+                  </>
+                );
+
+                return (
+                  <li key={transaction.id}>
+                    {onOpenTransaction ? (
+                      <button
+                        type="button"
+                        className="transaction-row transaction-row-button"
+                        aria-label={`View ${transaction.description}`}
+                        onClick={() => {
+                          onOpenTransaction(transaction.id);
+                        }}
+                      >
+                        {row}
+                      </button>
+                    ) : (
+                      <div className="transaction-row">{row}</div>
+                    )}
                   </li>
                 );
               })}
@@ -325,37 +351,3 @@ export function Dashboard({
   );
 }
 
-function transactionPartyName(
-  transaction: Transaction,
-  accountsById: Map<string, Account>,
-  cardsById: Map<string, Card>,
-): string {
-  if (transaction.eventType === "card_purchase" && transaction.cardId) {
-    return cardsById.get(transaction.cardId)?.name ?? "Unknown card";
-  }
-
-  if (transaction.eventType === "transfer") {
-    const source = transaction.accountId
-      ? accountsById.get(transaction.accountId)?.name
-      : undefined;
-    const destination = transaction.counterpartyAccountId
-      ? accountsById.get(transaction.counterpartyAccountId)?.name
-      : undefined;
-
-    if (source && destination) {
-      return `${source} → ${destination}`;
-    }
-
-    return source ?? destination ?? "Unknown account";
-  }
-
-  if (transaction.accountId) {
-    return accountsById.get(transaction.accountId)?.name ?? "Unknown account";
-  }
-
-  if (transaction.cardId) {
-    return cardsById.get(transaction.cardId)?.name ?? "Unknown card";
-  }
-
-  return "Unknown account";
-}

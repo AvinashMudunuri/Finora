@@ -3,13 +3,16 @@ import type { Account, Card, Transaction } from "./types.ts";
 import {
   cashTotal,
   creditOwed,
+  eventTypeLabel,
   formatCurrency,
   formatDate,
   getCardTransactions,
   getRecentTransactions,
+  listTransactions,
   netBalance,
   paymentStatusLabel,
   signedAmount,
+  transactionContext,
 } from "./finance.ts";
 
 const accounts: Account[] = [
@@ -217,5 +220,174 @@ describe("payment status labels", () => {
     expect(paymentStatusLabel("current")).toBe("Current");
     expect(paymentStatusLabel("due")).toBe("Due");
     expect(paymentStatusLabel("overdue")).toBe("Overdue");
+  });
+});
+
+describe("event type labels", () => {
+  it("presents domain event types without renaming the stored values", () => {
+    expect(eventTypeLabel("income")).toBe("Income");
+    expect(eventTypeLabel("expense")).toBe("Expense");
+    expect(eventTypeLabel("transfer")).toBe("Transfer");
+    expect(eventTypeLabel("card_purchase")).toBe("Card purchase");
+    expect(eventTypeLabel("card_payment")).toBe("Card payment");
+    expect(eventTypeLabel("investment")).toBe("Investment");
+  });
+});
+
+describe("transaction context", () => {
+  const accountsById = new Map(accounts.map((account) => [account.id, account]));
+  const cardsById = new Map(cards.map((card) => [card.id, card]));
+
+  it("uses explicit account and card relationships, not descriptions", () => {
+    expect(
+      transactionContext(
+        {
+          id: "income",
+          date: "2026-09-03",
+          description: "Payroll",
+          amount: 100,
+          currency: "USD",
+          eventType: "income",
+          accountId: "acc-checking",
+          counterpartyAccountId: null,
+          cardId: null,
+        },
+        accountsById,
+        cardsById,
+      ),
+    ).toBe("Checking");
+
+    expect(
+      transactionContext(
+        {
+          id: "transfer",
+          date: "2026-08-28",
+          description: "Transfer to Emergency Savings",
+          amount: 400,
+          currency: "USD",
+          eventType: "transfer",
+          accountId: "acc-checking",
+          counterpartyAccountId: "acc-cash",
+          cardId: null,
+        },
+        accountsById,
+        cardsById,
+      ),
+    ).toBe("Checking → Cash");
+
+    expect(
+      transactionContext(
+        {
+          id: "purchase",
+          date: "2026-08-30",
+          description: "Looks like Checking",
+          amount: 48,
+          currency: "USD",
+          eventType: "card_purchase",
+          accountId: null,
+          counterpartyAccountId: null,
+          cardId: "card-visa",
+        },
+        accountsById,
+        cardsById,
+      ),
+    ).toBe("Visa Rewards");
+
+    expect(
+      transactionContext(
+        {
+          id: "payment",
+          date: "2026-09-01",
+          description: "Payment — Thank you",
+          amount: 250,
+          currency: "USD",
+          eventType: "card_payment",
+          accountId: "acc-checking",
+          counterpartyAccountId: null,
+          cardId: "card-visa",
+        },
+        accountsById,
+        cardsById,
+      ),
+    ).toBe("Checking → Visa Rewards");
+  });
+});
+
+describe("transaction listing", () => {
+  it("orders newest first and ties on the same date by transaction id", () => {
+    const listed = listTransactions([
+      {
+        id: "txn-a",
+        date: "2026-09-01",
+        description: "Older A",
+        amount: 1,
+        currency: "USD",
+        eventType: "expense",
+        accountId: "acc-checking",
+        counterpartyAccountId: null,
+        cardId: null,
+      },
+      {
+        id: "txn-c",
+        date: "2026-09-02",
+        description: "Newest C",
+        amount: 1,
+        currency: "USD",
+        eventType: "expense",
+        accountId: "acc-checking",
+        counterpartyAccountId: null,
+        cardId: null,
+      },
+      {
+        id: "txn-b",
+        date: "2026-09-01",
+        description: "Older B",
+        amount: 1,
+        currency: "USD",
+        eventType: "expense",
+        accountId: "acc-checking",
+        counterpartyAccountId: null,
+        cardId: null,
+      },
+    ]);
+
+    expect(listed.map((tx) => tx.id)).toEqual(["txn-c", "txn-b", "txn-a"]);
+  });
+
+  it("filters by party or event type without inventing extra lists", () => {
+    const source: Transaction[] = [
+      {
+        id: "income",
+        date: "2026-09-03",
+        description: "Payroll",
+        amount: 10,
+        currency: "USD",
+        eventType: "income",
+        accountId: "acc-checking",
+        counterpartyAccountId: null,
+        cardId: null,
+      },
+      {
+        id: "card",
+        date: "2026-09-02",
+        description: "Dinner",
+        amount: 5,
+        currency: "USD",
+        eventType: "card_purchase",
+        accountId: null,
+        counterpartyAccountId: null,
+        cardId: "card-visa",
+      },
+    ];
+
+    expect(
+      listTransactions(source, { kind: "party", id: "acc-checking" }).map((tx) => tx.id),
+    ).toEqual(["income"]);
+    expect(
+      listTransactions(source, { kind: "event", eventType: "card_purchase" }).map(
+        (tx) => tx.id,
+      ),
+    ).toEqual(["card"]);
+    expect(listTransactions(source, { kind: "all" })).toHaveLength(2);
   });
 });

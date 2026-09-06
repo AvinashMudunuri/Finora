@@ -22,6 +22,8 @@ export type CardsProps = {
   selectedCardId: string;
   onSelectCard: (cardId: string) => void;
   onShowDashboard?: () => void;
+  onShowTransactions?: () => void;
+  onOpenTransaction?: (transactionId: string) => void;
 };
 
 export function Cards({
@@ -30,6 +32,8 @@ export function Cards({
   selectedCardId,
   onSelectCard,
   onShowDashboard,
+  onShowTransactions,
+  onOpenTransaction,
 }: CardsProps) {
   const utilizationById = useMemo(() => {
     return new Map(
@@ -53,6 +57,9 @@ export function Cards({
           onShowDashboard?.();
         }}
         onShowCards={() => undefined}
+        onShowTransactions={() => {
+          onShowTransactions?.();
+        }}
       />
 
       <main className="page">
@@ -118,6 +125,7 @@ export function Cards({
             card={selectedCard}
             utilization={selectedUtilization}
             transactions={selectedTransactions}
+            onOpenTransaction={onOpenTransaction}
           />
         ) : (
           <section className="panel">
@@ -133,10 +141,12 @@ function CardDetail({
   card,
   utilization,
   transactions,
+  onOpenTransaction,
 }: {
   card: Card;
   utilization: CardUtilizationResult;
   transactions: Transaction[];
+  onOpenTransaction?: (transactionId: string) => void;
 }) {
   const headingId = `${card.id}-detail-heading`;
 
@@ -169,9 +179,8 @@ function CardDetail({
             {transactions.map((transaction) => {
               const direction = transactionDirection(transaction, card.id);
               const amount = signedAmount(transaction, card.id);
-
-              return (
-                <li key={transaction.id} className="transaction-row">
+              const row = (
+                <>
                   <div className="transaction-main">
                     <p className="transaction-description">
                       {transaction.description}
@@ -196,6 +205,25 @@ function CardDetail({
                       {transactionTypeLabel(direction)}
                     </p>
                   </div>
+                </>
+              );
+
+              return (
+                <li key={transaction.id}>
+                  {onOpenTransaction ? (
+                    <button
+                      type="button"
+                      className="transaction-row transaction-row-button"
+                      aria-label={`View ${transaction.description}`}
+                      onClick={() => {
+                        onOpenTransaction(transaction.id);
+                      }}
+                    >
+                      {row}
+                    </button>
+                  ) : (
+                    <div className="transaction-row">{row}</div>
+                  )}
                 </li>
               );
             })}
