@@ -127,6 +127,30 @@ describe("Finora app navigation", () => {
     expect(screen.getByText("Payroll — Acme Corp")).toBeInTheDocument();
   });
 
+  it("opens accounts from the dashboard financial-position card", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "View accounts" }));
+
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Accounts" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Your accounts" })).toBeInTheDocument();
+  });
+
+  it("opens cards from the dashboard liabilities card", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "View cards" }));
+
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Cards" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Your cards" })).toBeInTheDocument();
+  });
+
   it("opens the spending experience from the primary navigation", async () => {
     const user = userEvent.setup();
     render(<App />);

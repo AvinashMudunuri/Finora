@@ -1,6 +1,9 @@
 import { useMemo, useState } from "react";
 import {
+  calculateAssetBreakdown,
   calculateCardUtilization,
+  calculateMonthlyIncome,
+  calculateMonthlySavings,
   calculateMonthlySpending,
   calculateNetWorth,
   latestActivityMonth,
@@ -61,11 +64,20 @@ export function Dashboard({
   }, [cards]);
 
   const worth = calculateNetWorth(accounts, cards);
+  const assets = calculateAssetBreakdown(accounts);
   const activityMonth = latestActivityMonth(transactions);
+  const selectedYear = activityMonth?.year ?? 0;
+  const selectedMonth = activityMonth?.month ?? 1;
   const spending = calculateMonthlySpending(
     transactions,
-    activityMonth?.year ?? 0,
-    activityMonth?.month ?? 1,
+    selectedYear,
+    selectedMonth,
+  );
+  const income = calculateMonthlyIncome(transactions, selectedYear, selectedMonth);
+  const savings = calculateMonthlySavings(
+    transactions,
+    selectedYear,
+    selectedMonth,
   );
   const cardUtilization = useMemo(() => {
     return new Map(
@@ -104,8 +116,8 @@ export function Dashboard({
           <div className="panel-header">
             <h2 id="overview-heading">Overview</h2>
             <p className="panel-copy">
-              Net worth is assets minus liabilities. Monthly spending counts
-              expenses and card purchases only.
+              Net worth is assets minus liabilities. Assets are bank, cash, and
+              investment balances. Liabilities are card balances owed.
             </p>
           </div>
 
@@ -121,6 +133,81 @@ export function Dashboard({
                 <p className="stat-note">
                   {formatCurrency(worth.assets, worth.currency)} assets −{" "}
                   {formatCurrency(worth.liabilities, worth.currency)} liabilities
+                </p>
+                <p className="stat-note">Assets − liabilities</p>
+              </article>
+              <article className="stat-card">
+                <h3>Assets</h3>
+                <p className="stat-value">
+                  {formatCurrency(assets.total, assets.currency)}
+                </p>
+                <dl className="position-breakdown">
+                  <div>
+                    <dt>Bank</dt>
+                    <dd>{formatCurrency(assets.bank, assets.currency)}</dd>
+                  </div>
+                  <div>
+                    <dt>Cash</dt>
+                    <dd>{formatCurrency(assets.cash, assets.currency)}</dd>
+                  </div>
+                  <div>
+                    <dt>Investment</dt>
+                    <dd>{formatCurrency(assets.investment, assets.currency)}</dd>
+                  </div>
+                  <div>
+                    <dt>Liquid</dt>
+                    <dd>{formatCurrency(assets.liquid, assets.currency)}</dd>
+                  </div>
+                </dl>
+                <p className="stat-note">
+                  Liquid is bank + cash. Investments are assets, not liquid
+                  cash.
+                </p>
+                {onShowAccounts ? (
+                  <button
+                    type="button"
+                    className="inline-action"
+                    onClick={onShowAccounts}
+                  >
+                    View accounts
+                  </button>
+                ) : null}
+              </article>
+              <article className="stat-card">
+                <h3>Liabilities</h3>
+                <p className="stat-value stat-value-negative">
+                  {formatCurrency(
+                    -worth.liabilities,
+                    worth.currency,
+                    worth.liabilities !== 0,
+                  )}
+                </p>
+                <dl className="position-breakdown">
+                  <div>
+                    <dt>Cards</dt>
+                    <dd>{formatCurrency(worth.liabilities, worth.currency)}</dd>
+                  </div>
+                </dl>
+                <p className="stat-note">Current card balances owed</p>
+                {onShowCards ? (
+                  <button
+                    type="button"
+                    className="inline-action"
+                    onClick={onShowCards}
+                  >
+                    View cards
+                  </button>
+                ) : null}
+              </article>
+              <article className="stat-card">
+                <h3>Monthly income</h3>
+                <p className="stat-value">
+                  {formatCurrency(income.total, income.currency)}
+                </p>
+                <p className="stat-note">
+                  {activityMonth
+                    ? "Income events in the latest activity month"
+                    : "No transactions in this snapshot"}
                 </p>
               </article>
               <article className="stat-card">
@@ -144,15 +231,17 @@ export function Dashboard({
                 ) : null}
               </article>
               <article className="stat-card">
-                <h3>Credit cards</h3>
-                <p className="stat-value stat-value-negative">
-                  {formatCurrency(
-                    -worth.liabilities,
-                    worth.currency,
-                    worth.liabilities !== 0,
-                  )}
+                <h3>Monthly savings</h3>
+                <p
+                  className={
+                    savings.savings < 0
+                      ? "stat-value stat-value-negative"
+                      : "stat-value"
+                  }
+                >
+                  {formatCurrency(savings.savings, savings.currency)}
                 </p>
-                <p className="stat-note">Current balances owed</p>
+                <p className="stat-note">Income − spending</p>
               </article>
             </div>
           )}
