@@ -13,9 +13,11 @@ import {
   calculateMonthlySavings,
   calculateMonthlySpending,
   calculateNetWorth,
+  calculateSpendingChange,
 } from "../domain/calculations.ts";
 import {
   formatCurrency,
+  formatMonth,
   formatUtilization,
   signedAmount,
 } from "../domain/finance.ts";
@@ -282,5 +284,181 @@ describe("Finora dashboard", () => {
 
     expect(onShowAccounts).toHaveBeenCalledTimes(1);
     expect(onShowCards).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders the spending change insight from the calculated result", () => {
+    renderDashboard();
+
+    const insight = calculateSpendingChange(fixtureTransactions);
+    expect(insight).not.toBeNull();
+
+    const region = screen.getByRole("region", { name: "Spending change" });
+    expect(
+      within(region).getByRole("heading", { name: "Spending decreased" }),
+    ).toBeInTheDocument();
+    expect(
+      within(region).getByText(
+        `You spent ${formatCurrency(insight!.currentSpending, insight!.currency)} this month, compared with ${formatCurrency(insight!.previousSpending, insight!.currency)} last month.`,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(region).getByText(
+        `${formatMonth(insight!.currentPeriod.year, insight!.currentPeriod.month)} compared with ${formatMonth(insight!.previousPeriod.year, insight!.previousPeriod.month)}`,
+      ),
+    ).toBeInTheDocument();
+    expect(within(region).queryByText("Spending increased")).not.toBeInTheDocument();
+  });
+
+  it("renders an increased insight from the calculated result, not hard-coded fixture copy", () => {
+    const transactions = [
+      {
+        id: "txn-prev",
+        date: "2026-03-10",
+        description: "Older grocery",
+        amount: 20,
+        currency: "USD" as const,
+        eventType: "expense" as const,
+        accountId: "acc-harbor",
+        counterpartyAccountId: null,
+        cardId: null,
+      },
+      {
+        id: "txn-current",
+        date: "2026-04-02",
+        description: "Newer grocery",
+        amount: 55,
+        currency: "USD" as const,
+        eventType: "expense" as const,
+        accountId: "acc-harbor",
+        counterpartyAccountId: null,
+        cardId: null,
+      },
+    ];
+    const insight = calculateSpendingChange(transactions);
+
+    render(
+      <Dashboard
+        accounts={[
+          {
+            id: "acc-harbor",
+            name: "Harbor Checking",
+            type: "bank",
+            balance: 100,
+            currency: "USD",
+          },
+        ]}
+        cards={[]}
+        transactions={transactions}
+      />,
+    );
+
+    const region = screen.getByRole("region", { name: "Spending change" });
+    expect(insight?.direction).toBe("increased");
+    expect(
+      within(region).getByRole("heading", { name: "Spending increased" }),
+    ).toBeInTheDocument();
+    expect(
+      within(region).getByText(
+        `You spent ${formatCurrency(55, "USD")} this month, compared with ${formatCurrency(20, "USD")} last month.`,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Spending decreased")).not.toBeInTheDocument();
+    expect(screen.queryByText("$87.42")).not.toBeInTheDocument();
+  });
+
+  it("renders a neutral insight when spending is unchanged", () => {
+    const transactions = [
+      {
+        id: "txn-prev",
+        date: "2026-03-10",
+        description: "Older grocery",
+        amount: 40,
+        currency: "USD" as const,
+        eventType: "expense" as const,
+        accountId: "acc-harbor",
+        counterpartyAccountId: null,
+        cardId: null,
+      },
+      {
+        id: "txn-current",
+        date: "2026-04-02",
+        description: "Newer grocery",
+        amount: 40,
+        currency: "USD" as const,
+        eventType: "expense" as const,
+        accountId: "acc-harbor",
+        counterpartyAccountId: null,
+        cardId: null,
+      },
+    ];
+
+    render(
+      <Dashboard
+        accounts={[
+          {
+            id: "acc-harbor",
+            name: "Harbor Checking",
+            type: "bank",
+            balance: 100,
+            currency: "USD",
+          },
+        ]}
+        cards={[]}
+        transactions={transactions}
+      />,
+    );
+
+    const region = screen.getByRole("region", { name: "Spending change" });
+    expect(
+      within(region).getByRole("heading", { name: "Spending unchanged" }),
+    ).toBeInTheDocument();
+    expect(
+      within(region).getByText(
+        `You spent ${formatCurrency(40, "USD")} this month, compared with ${formatCurrency(40, "USD")} last month.`,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("does not render a spending change insight when there is no activity month", () => {
+    render(
+      <Dashboard
+        accounts={[
+          {
+            id: "acc-harbor",
+            name: "Harbor Checking",
+            type: "bank",
+            balance: 100,
+            currency: "USD",
+          },
+        ]}
+        cards={[]}
+        transactions={[]}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("region", { name: "Spending change" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Spending decreased")).not.toBeInTheDocument();
+  });
+
+  it("opens spending from the insight when a callback is provided", async () => {
+    const user = userEvent.setup();
+    const onShowSpending = vi.fn();
+
+    render(
+      <Dashboard
+        accounts={fixtureAccounts}
+        cards={fixtureCards}
+        transactions={fixtureTransactions}
+        onShowSpending={onShowSpending}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Inspect spending" }),
+    );
+
+    expect(onShowSpending).toHaveBeenCalledTimes(1);
   });
 });

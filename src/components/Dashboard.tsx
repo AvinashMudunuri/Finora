@@ -6,7 +6,9 @@ import {
   calculateMonthlySavings,
   calculateMonthlySpending,
   calculateNetWorth,
+  calculateSpendingChange,
   latestActivityMonth,
+  type SpendingChangeDirection,
 } from "../domain/calculations.ts";
 import {
   accountTypeLabel,
@@ -35,6 +37,18 @@ export type DashboardProps = {
   onOpenAccount?: (accountId: string) => void;
   onOpenTransaction?: (transactionId: string) => void;
 };
+
+function spendingChangeHeadline(direction: SpendingChangeDirection): string {
+  if (direction === "increased") {
+    return "Spending increased";
+  }
+
+  if (direction === "decreased") {
+    return "Spending decreased";
+  }
+
+  return "Spending unchanged";
+}
 
 export function Dashboard({
   accounts,
@@ -84,6 +98,7 @@ export function Dashboard({
       calculateCardUtilization(cards).map((result) => [result.cardId, result]),
     );
   }, [cards]);
+  const spendingChange = calculateSpendingChange(transactions);
 
   return (
     <div className="app-shell">
@@ -246,6 +261,59 @@ export function Dashboard({
             </div>
           )}
         </section>
+
+        {spendingChange ? (
+          <section className="panel" aria-labelledby="spending-change-heading">
+            <div className="panel-header">
+              <h2 id="spending-change-heading">Spending change</h2>
+              <p className="panel-copy">
+                How spending this month compares with the previous month, using
+                the same expense and card-purchase totals as the spending
+                metric.
+              </p>
+            </div>
+
+            <article
+              className="insight-card"
+              data-direction={spendingChange.direction}
+            >
+              <h3>{spendingChangeHeadline(spendingChange.direction)}</h3>
+              <p className="insight-body">
+                You spent{" "}
+                {formatCurrency(
+                  spendingChange.currentSpending,
+                  spendingChange.currency,
+                )}{" "}
+                this month, compared with{" "}
+                {formatCurrency(
+                  spendingChange.previousSpending,
+                  spendingChange.currency,
+                )}{" "}
+                last month.
+              </p>
+              <p className="stat-note">
+                {formatMonth(
+                  spendingChange.currentPeriod.year,
+                  spendingChange.currentPeriod.month,
+                )}{" "}
+                compared with{" "}
+                {formatMonth(
+                  spendingChange.previousPeriod.year,
+                  spendingChange.previousPeriod.month,
+                )}
+              </p>
+              {onShowSpending ? (
+                <button
+                  type="button"
+                  className="inline-action"
+                  onClick={onShowSpending}
+                >
+                  Inspect spending
+                </button>
+              ) : null}
+            </article>
+          </section>
+        ) : null}
 
         <section className="panel" aria-labelledby="accounts-heading">
           <div className="panel-header">

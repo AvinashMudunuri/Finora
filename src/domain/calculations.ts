@@ -217,6 +217,56 @@ export function listMonthlySpendingTransactions(
     .sort(compareNewestFirst);
 }
 
+export type SpendingChangeDirection = "increased" | "decreased" | "unchanged";
+
+export type SpendingChangePeriod = {
+  year: number;
+  month: number;
+};
+
+export type SpendingChangeResult = {
+  currentPeriod: SpendingChangePeriod;
+  previousPeriod: SpendingChangePeriod;
+  currentSpending: number;
+  previousSpending: number;
+  absoluteChange: number;
+  direction: SpendingChangeDirection;
+  currency: CurrencyCode;
+};
+
+export function calculateSpendingChange(
+  transactions: Transaction[],
+): SpendingChangeResult | null {
+  const currentPeriod = latestActivityMonth(transactions);
+
+  if (!currentPeriod) {
+    return null;
+  }
+
+  const previousPeriod = previousCalendarMonth(currentPeriod);
+  const current = calculateMonthlySpending(
+    transactions,
+    currentPeriod.year,
+    currentPeriod.month,
+  );
+  const previous = calculateMonthlySpending(
+    transactions,
+    previousPeriod.year,
+    previousPeriod.month,
+  );
+  const absoluteChange = Math.abs(current.total - previous.total);
+
+  return {
+    currentPeriod,
+    previousPeriod,
+    currentSpending: current.total,
+    previousSpending: previous.total,
+    absoluteChange,
+    direction: spendingChangeDirection(current.total, previous.total),
+    currency: current.currency,
+  };
+}
+
 export function latestActivityMonth(
   transactions: Transaction[],
 ): { year: number; month: number } | null {
@@ -233,6 +283,31 @@ export function latestActivityMonth(
   }
 
   return parseYearMonth(latest.date);
+}
+
+function previousCalendarMonth(
+  period: SpendingChangePeriod,
+): SpendingChangePeriod {
+  if (period.month === 1) {
+    return { year: period.year - 1, month: 12 };
+  }
+
+  return { year: period.year, month: period.month - 1 };
+}
+
+function spendingChangeDirection(
+  currentSpending: number,
+  previousSpending: number,
+): SpendingChangeDirection {
+  if (currentSpending > previousSpending) {
+    return "increased";
+  }
+
+  if (currentSpending < previousSpending) {
+    return "decreased";
+  }
+
+  return "unchanged";
 }
 
 function compareNewestFirst(left: Transaction, right: Transaction): number {

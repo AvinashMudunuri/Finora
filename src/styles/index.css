@@ -473,6 +473,35 @@ button {
   text-transform: none;
 }
 
+.insight-card {
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: 14px;
+  padding: 1rem 1.05rem 1.05rem;
+  background: var(--bg-accent);
+}
+
+.insight-card[data-direction="increased"] {
+  border-left-color: var(--negative);
+}
+
+.insight-card[data-direction="decreased"] {
+  border-left-color: var(--positive);
+}
+
+.insight-card h3 {
+  font-size: 1.25rem;
+  letter-spacing: -0.03em;
+  line-height: 1.25;
+  text-transform: none;
+}
+
+.insight-body {
+  margin-top: 0.45rem;
+  max-width: 40rem;
+  line-height: 1.5;
+}
+
 @media (min-width: 720px) {
   .site-header,
   .page {
