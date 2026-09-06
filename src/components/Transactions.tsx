@@ -19,6 +19,7 @@ export type TransactionsProps = {
   selectedTransactionId: string;
   onSelectTransaction: (transactionId: string) => void;
   onShowDashboard?: () => void;
+  onShowAccounts?: () => void;
   onShowCards?: () => void;
   onShowSpending?: () => void;
 };
@@ -30,6 +31,7 @@ export function Transactions({
   selectedTransactionId,
   onSelectTransaction,
   onShowDashboard,
+  onShowAccounts,
   onShowCards,
   onShowSpending,
 }: TransactionsProps) {
@@ -62,6 +64,9 @@ export function Transactions({
         current="transactions"
         onShowDashboard={() => {
           onShowDashboard?.();
+        }}
+        onShowAccounts={() => {
+          onShowAccounts?.();
         }}
         onShowCards={() => {
           onShowCards?.();

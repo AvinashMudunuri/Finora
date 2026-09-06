@@ -1,8 +1,14 @@
-export type AppView = "dashboard" | "cards" | "transactions" | "spending";
+export type AppView =
+  | "dashboard"
+  | "accounts"
+  | "cards"
+  | "transactions"
+  | "spending";
 
 type SiteHeaderProps = {
   current: AppView;
   onShowDashboard: () => void;
+  onShowAccounts?: () => void;
   onShowCards: () => void;
   onShowTransactions: () => void;
   onShowSpending?: () => void;
@@ -11,6 +17,7 @@ type SiteHeaderProps = {
 export function SiteHeader({
   current,
   onShowDashboard,
+  onShowAccounts,
   onShowCards,
   onShowTransactions,
   onShowSpending,
@@ -31,6 +38,18 @@ export function SiteHeader({
           onClick={onShowDashboard}
         >
           Dashboard
+        </button>
+        <button
+          type="button"
+          className={
+            current === "accounts" ? "filter-chip is-active" : "filter-chip"
+          }
+          aria-current={current === "accounts" ? "page" : undefined}
+          onClick={() => {
+            onShowAccounts?.();
+          }}
+        >
+          Accounts
         </button>
         <button
           type="button"

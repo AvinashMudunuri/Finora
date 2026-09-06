@@ -79,6 +79,54 @@ describe("Finora app navigation", () => {
     expect(within(detail).getByText("Visa Rewards")).toBeInTheDocument();
   });
 
+  it("opens the accounts experience from the primary navigation", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Accounts" }));
+
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Accounts" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Your accounts" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Everyday Checking" }),
+    ).toBeInTheDocument();
+  });
+
+  it("opens a selected account from the dashboard tile", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(
+      screen.getByRole("button", { name: "View Everyday Checking" }),
+    );
+
+    const detail = screen.getByRole("region", { name: "Everyday Checking" });
+    expect(within(detail).getByText("Bank")).toBeInTheDocument();
+    expect(within(detail).getByText("Payroll — Acme Corp")).toBeInTheDocument();
+  });
+
+  it("opens an account transaction in the existing transactions experience", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Accounts" }));
+    await user.click(
+      screen.getByRole("button", { name: "View Payroll — Acme Corp" }),
+    );
+
+    const detail = screen.getByRole("region", { name: "Payroll — Acme Corp" });
+    expect(within(detail).getByText("Income")).toBeInTheDocument();
+    expect(within(detail).getByText("Everyday Checking")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Accounts" }));
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Accounts" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Payroll — Acme Corp")).toBeInTheDocument();
+  });
+
   it("opens the spending experience from the primary navigation", async () => {
     const user = userEvent.setup();
     render(<App />);
