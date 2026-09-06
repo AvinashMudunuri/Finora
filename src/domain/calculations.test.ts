@@ -8,6 +8,8 @@ import type { Account, Card, Transaction } from "./types.ts";
 import {
   calculateAssetBreakdown,
   calculateCardUtilization,
+  calculateHighCardUtilization,
+  HIGH_CARD_UTILIZATION_THRESHOLD,
   calculateLiquidAssets,
   calculateMonthlyIncome,
   calculateMonthlySavings,
@@ -229,6 +231,77 @@ describe("card utilization", () => {
     expect(amex?.cardId).toBe("card-amex");
     expect(amex?.utilization).toBeCloseTo(326.4 / 2500, 5);
     expect(amex?.availableCredit).toBeCloseTo(2173.6, 2);
+  });
+});
+
+describe("high card utilization", () => {
+  it("does not surface a card below the threshold", () => {
+    expect(
+      calculateHighCardUtilization([
+        card({ id: "below", creditLimit: 1000, outstandingBalance: 699 }),
+      ]),
+    ).toBeNull();
+  });
+
+  it("surfaces a card exactly at the threshold", () => {
+    const result = calculateHighCardUtilization([
+      card({ id: "edge", creditLimit: 1000, outstandingBalance: 700 }),
+    ]);
+
+    expect(result).toEqual({
+      cardId: "edge",
+      utilization: 0.7,
+      threshold: HIGH_CARD_UTILIZATION_THRESHOLD,
+      outstandingBalance: 700,
+      creditLimit: 1000,
+    });
+  });
+
+  it("surfaces a card above the threshold", () => {
+    const result = calculateHighCardUtilization([
+      card({ id: "above", creditLimit: 1000, outstandingBalance: 800 }),
+    ]);
+
+    expect(result?.cardId).toBe("above");
+    expect(result?.utilization).toBeCloseTo(0.8, 5);
+    expect(result?.threshold).toBe(HIGH_CARD_UTILIZATION_THRESHOLD);
+  });
+
+  it("does not treat a zero credit limit as high utilization", () => {
+    expect(
+      calculateHighCardUtilization([
+        card({ id: "broken", creditLimit: 0, outstandingBalance: 10 }),
+      ]),
+    ).toBeNull();
+  });
+
+  it("selects the highest-utilization qualifying card", () => {
+    const result = calculateHighCardUtilization([
+      card({ id: "amex", creditLimit: 2500, outstandingBalance: 326.4 }),
+      card({ id: "visa", creditLimit: 1000, outstandingBalance: 800 }),
+      card({ id: "mid", creditLimit: 1000, outstandingBalance: 720 }),
+    ]);
+
+    expect(result?.cardId).toBe("visa");
+    expect(result?.utilization).toBeCloseTo(0.8, 5);
+  });
+
+  it("breaks utilization ties using existing card-list order", () => {
+    const result = calculateHighCardUtilization([
+      card({ id: "first", creditLimit: 1000, outstandingBalance: 800 }),
+      card({ id: "second", creditLimit: 500, outstandingBalance: 400 }),
+    ]);
+
+    expect(result?.cardId).toBe("first");
+    expect(result?.utilization).toBe(0.8);
+  });
+
+  it("returns no insight when there are no cards", () => {
+    expect(calculateHighCardUtilization([])).toBeNull();
+  });
+
+  it("does not surface fixture cards", () => {
+    expect(calculateHighCardUtilization(fixtureCards)).toBeNull();
   });
 });
 

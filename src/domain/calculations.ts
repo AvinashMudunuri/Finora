@@ -110,6 +110,48 @@ export function calculateCardUtilization(
   });
 }
 
+export const HIGH_CARD_UTILIZATION_THRESHOLD = 0.7;
+
+export type HighCardUtilizationResult = {
+  cardId: string;
+  utilization: number;
+  threshold: number;
+  outstandingBalance: number;
+  creditLimit: number;
+};
+
+export function calculateHighCardUtilization(
+  cards: Card[],
+): HighCardUtilizationResult | null {
+  const order = new Map(cards.map((currentCard, index) => [currentCard.id, index]));
+  const qualifying = calculateCardUtilization(cards).filter(
+    (result): result is CardUtilizationResult & { utilization: number } =>
+      result.utilization !== null &&
+      result.utilization >= HIGH_CARD_UTILIZATION_THRESHOLD,
+  );
+
+  if (qualifying.length === 0) {
+    return null;
+  }
+
+  qualifying.sort((left, right) => {
+    if (left.utilization !== right.utilization) {
+      return right.utilization - left.utilization;
+    }
+
+    return (order.get(left.cardId) ?? 0) - (order.get(right.cardId) ?? 0);
+  });
+
+  const selected = qualifying[0]!;
+  return {
+    cardId: selected.cardId,
+    utilization: selected.utilization,
+    threshold: HIGH_CARD_UTILIZATION_THRESHOLD,
+    outstandingBalance: selected.outstandingBalance,
+    creditLimit: selected.creditLimit,
+  };
+}
+
 export function calculateMonthlySpending(
   transactions: Transaction[],
   year: number,
