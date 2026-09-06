@@ -2,9 +2,7 @@ import { useMemo, useState } from "react";
 import {
   calculateAssetBreakdown,
   calculateCardUtilization,
-  calculateMonthlyIncome,
   calculateMonthlySavings,
-  calculateMonthlySpending,
   calculateNetWorth,
   calculateSpendingChange,
   latestActivityMonth,
@@ -82,13 +80,7 @@ export function Dashboard({
   const activityMonth = latestActivityMonth(transactions);
   const selectedYear = activityMonth?.year ?? 0;
   const selectedMonth = activityMonth?.month ?? 1;
-  const spending = calculateMonthlySpending(
-    transactions,
-    selectedYear,
-    selectedMonth,
-  );
-  const income = calculateMonthlyIncome(transactions, selectedYear, selectedMonth);
-  const savings = calculateMonthlySavings(
+  const monthlyFlow = calculateMonthlySavings(
     transactions,
     selectedYear,
     selectedMonth,
@@ -214,52 +206,56 @@ export function Dashboard({
                   </button>
                 ) : null}
               </article>
-              <article className="stat-card">
-                <h3>Monthly income</h3>
-                <p className="stat-value">
-                  {formatCurrency(income.total, income.currency)}
-                </p>
-                <p className="stat-note">
-                  {activityMonth
-                    ? "Income events in the latest activity month"
-                    : "No transactions in this snapshot"}
-                </p>
-              </article>
-              <article className="stat-card">
-                <h3>Monthly spending</h3>
-                <p className="stat-value">
-                  {formatCurrency(spending.total, spending.currency)}
-                </p>
-                <p className="stat-note">
-                  {activityMonth
-                    ? formatMonth(spending.year, spending.month)
-                    : "No transactions in this snapshot"}
-                </p>
-                {onShowSpending ? (
-                  <button
-                    type="button"
-                    className="inline-action"
-                    onClick={onShowSpending}
-                  >
-                    View spending
-                  </button>
-                ) : null}
-              </article>
-              <article className="stat-card">
-                <h3>Monthly savings</h3>
-                <p
-                  className={
-                    savings.savings < 0
-                      ? "stat-value stat-value-negative"
-                      : "stat-value"
-                  }
-                >
-                  {formatCurrency(savings.savings, savings.currency)}
-                </p>
-                <p className="stat-note">Income − spending</p>
-              </article>
             </div>
           )}
+        </section>
+
+        <section className="panel" aria-labelledby="monthly-flow-heading">
+          <div className="panel-header">
+            <h2 id="monthly-flow-heading">Monthly flow</h2>
+            <p className="panel-copy">
+              {activityMonth
+                ? formatMonth(activityMonth.year, activityMonth.month)
+                : "No transactions in this snapshot"}
+            </p>
+          </div>
+
+          <div className="overview-grid">
+            <article className="stat-card">
+              <h3>Income</h3>
+              <p className="stat-value">
+                {formatCurrency(monthlyFlow.income, monthlyFlow.currency)}
+              </p>
+            </article>
+            <article className="stat-card">
+              <h3>Spending</h3>
+              <p className="stat-value">
+                {formatCurrency(monthlyFlow.spending, monthlyFlow.currency)}
+              </p>
+              {onShowSpending ? (
+                <button
+                  type="button"
+                  className="inline-action"
+                  onClick={onShowSpending}
+                >
+                  View spending
+                </button>
+              ) : null}
+            </article>
+            <article className="stat-card">
+              <h3>Savings</h3>
+              <p
+                className={
+                  monthlyFlow.savings < 0
+                    ? "stat-value stat-value-negative"
+                    : "stat-value"
+                }
+              >
+                {formatCurrency(monthlyFlow.savings, monthlyFlow.currency)}
+              </p>
+              <p className="stat-note">Income − spending</p>
+            </article>
+          </div>
         </section>
 
         {spendingChange ? (
