@@ -100,7 +100,7 @@ describe("Finora cards list", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders payment due date and payment status for each card", () => {
+  it("renders each card's own outstanding, minimum payment, due date, and status", () => {
     renderCards();
 
     const list = screen.getByRole("region", { name: "Your cards" });
@@ -109,12 +109,76 @@ describe("Finora cards list", () => {
       const summary = within(list).getByText(card.name).closest("button");
       expect(summary).not.toBeNull();
       expect(
+        within(summary!).getByText(
+          formatCurrency(card.outstandingBalance, card.currency),
+        ),
+      ).toBeInTheDocument();
+      expect(
+        within(summary!).getByText(
+          formatCurrency(card.minimumPayment, card.currency),
+        ),
+      ).toBeInTheDocument();
+      expect(
         within(summary!).getByText(formatDate(card.paymentDueDate)),
       ).toBeInTheDocument();
       expect(
         within(summary!).getByText(paymentStatusLabel(card.paymentStatus)),
       ).toBeInTheDocument();
     }
+
+    const visa = within(list).getByText("Visa Rewards").closest("button");
+    const amex = within(list).getByText("Amex Everyday").closest("button");
+    expect(visa).not.toBeNull();
+    expect(amex).not.toBeNull();
+    expect(within(visa!).queryByText("$25.00")).not.toBeInTheDocument();
+    expect(within(amex!).queryByText("$35.00")).not.toBeInTheDocument();
+    expect(within(visa!).queryByText("Current")).not.toBeInTheDocument();
+    expect(within(amex!).queryByText("Due")).not.toBeInTheDocument();
+  });
+
+  it("keeps zero and overdue obligations on the card that owns them", () => {
+    const cards: Card[] = [
+      {
+        ...fixtureCards[0]!,
+        id: "card-paid",
+        name: "Paid Card",
+        outstandingBalance: 0,
+        availableCredit: fixtureCards[0]!.creditLimit,
+        minimumPayment: 0,
+        paymentDueDate: "2026-10-01",
+        paymentStatus: "current",
+      },
+      {
+        ...fixtureCards[1]!,
+        id: "card-late",
+        name: "Late Card",
+        outstandingBalance: 120,
+        availableCredit: fixtureCards[1]!.creditLimit - 120,
+        minimumPayment: 40,
+        paymentDueDate: "2026-08-15",
+        paymentStatus: "overdue",
+      },
+    ];
+
+    renderCards({ cards, selectedCardId: "card-paid" });
+
+    const list = screen.getByRole("region", { name: "Your cards" });
+    const paid = within(list).getByText("Paid Card").closest("button");
+    const late = within(list).getByText("Late Card").closest("button");
+    expect(paid).not.toBeNull();
+    expect(late).not.toBeNull();
+
+    expect(within(paid!).getAllByText("$0.00").length).toBeGreaterThanOrEqual(2);
+    expect(within(paid!).getByText("Current")).toBeInTheDocument();
+    expect(within(paid!).getByText(formatDate("2026-10-01"))).toBeInTheDocument();
+    expect(within(paid!).queryByText("Overdue")).not.toBeInTheDocument();
+    expect(within(paid!).queryByText("$40.00")).not.toBeInTheDocument();
+
+    expect(within(late!).getByText("$120.00")).toBeInTheDocument();
+    expect(within(late!).getByText("$40.00")).toBeInTheDocument();
+    expect(within(late!).getByText("Overdue")).toBeInTheDocument();
+    expect(within(late!).getByText(formatDate("2026-08-15"))).toBeInTheDocument();
+    expect(within(late!).queryByText("Current")).not.toBeInTheDocument();
   });
 
   it("preserves the null utilization display for a zero credit limit", () => {
