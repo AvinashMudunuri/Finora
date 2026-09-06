@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Cards } from "../components/Cards.tsx";
 import { Dashboard } from "../components/Dashboard.tsx";
+import { Spending } from "../components/Spending.tsx";
 import { Transactions } from "../components/Transactions.tsx";
 import {
   fixtureAccounts,
@@ -8,10 +9,10 @@ import {
   fixtureTransactions,
 } from "../data/fixtures.ts";
 
+type AppView = "dashboard" | "cards" | "transactions" | "spending";
+
 export default function App() {
-  const [view, setView] = useState<"dashboard" | "cards" | "transactions">(
-    "dashboard",
-  );
+  const [view, setView] = useState<AppView>("dashboard");
   const [selectedCardId, setSelectedCardId] = useState(
     fixtureCards[0]?.id ?? "",
   );
@@ -31,6 +32,9 @@ export default function App() {
         }}
         onShowTransactions={() => {
           setView("transactions");
+        }}
+        onShowSpending={() => {
+          setView("spending");
         }}
         onOpenTransaction={(transactionId) => {
           setSelectedTransactionId(transactionId);
@@ -54,6 +58,32 @@ export default function App() {
         onShowCards={() => {
           setView("cards");
         }}
+        onShowSpending={() => {
+          setView("spending");
+        }}
+      />
+    );
+  }
+
+  if (view === "spending") {
+    return (
+      <Spending
+        accounts={fixtureAccounts}
+        cards={fixtureCards}
+        transactions={fixtureTransactions}
+        onShowDashboard={() => {
+          setView("dashboard");
+        }}
+        onShowCards={() => {
+          setView("cards");
+        }}
+        onShowTransactions={() => {
+          setView("transactions");
+        }}
+        onOpenTransaction={(transactionId) => {
+          setSelectedTransactionId(transactionId);
+          setView("transactions");
+        }}
       />
     );
   }
@@ -68,6 +98,9 @@ export default function App() {
       }}
       onShowTransactions={() => {
         setView("transactions");
+      }}
+      onShowSpending={() => {
+        setView("spending");
       }}
       onOpenCard={(cardId) => {
         setSelectedCardId(cardId);

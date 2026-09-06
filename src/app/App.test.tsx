@@ -78,4 +78,39 @@ describe("Finora app navigation", () => {
     expect(within(detail).getByText("Card purchase")).toBeInTheDocument();
     expect(within(detail).getByText("Visa Rewards")).toBeInTheDocument();
   });
+
+  it("opens the spending experience from the primary navigation", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Spending" }));
+
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Spending" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "September 2026" })).toBeInTheDocument();
+  });
+
+  it("opens spending from the dashboard and returns after transaction detail", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "View spending" }));
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Spending" }),
+    ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: "View Payroll — Acme Corp" }),
+    );
+    expect(
+      screen.getByRole("region", { name: "Payroll — Acme Corp" }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Spending" }));
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Spending" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Payroll — Acme Corp")).toBeInTheDocument();
+  });
 });
