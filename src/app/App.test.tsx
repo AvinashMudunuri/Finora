@@ -185,4 +185,20 @@ describe("Finora app navigation", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Payroll — Acme Corp")).toBeInTheDocument();
   });
+
+  it("opens the existing spending view from the spending-change insight", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    expect(screen.getByRole("region", { name: "Spending change" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Inspect spending" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Inspect spending" }));
+
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Spending" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "September 2026" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Spending change" })).not.toBeInTheDocument();
+  });
 });
