@@ -22,7 +22,7 @@ Balances live on the account or card they belong to. The dashboard now calculate
 
 Income, transfers, card payments, and investment events are not spending. Credit limits are not assets or liabilities. These calculations assume the fixture snapshot is a single currency (USD) and do not convert FX.
 
-All numbers come from **deterministic local fixture data**. Relationships are validated on load. There is no backend, bank connection, or live account sync.
+All numbers come from **deterministic local fixture data**. Relationships are validated on load. There is no backend, bank connection, or live account sync. The production build is a Progressive Web App: it ships a web app manifest and a service worker so the fixture-backed app shell can be installed and opened offline.
 
 ## Unresolved product decisions
 
@@ -41,6 +41,8 @@ These stay open, as in the PRD:
 npm install
 npm run dev
 ```
+
+Preview the installable build with `npm run build && npm run preview`.
 
 ## Testing, typecheck, lint, and build
 
