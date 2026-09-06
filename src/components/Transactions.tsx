@@ -20,6 +20,7 @@ export type TransactionsProps = {
   onSelectTransaction: (transactionId: string) => void;
   onShowDashboard?: () => void;
   onShowCards?: () => void;
+  onShowSpending?: () => void;
 };
 
 export function Transactions({
@@ -30,6 +31,7 @@ export function Transactions({
   onSelectTransaction,
   onShowDashboard,
   onShowCards,
+  onShowSpending,
 }: TransactionsProps) {
   const [filter, setFilter] = useState<TransactionListFilter>({ kind: "all" });
 
@@ -65,6 +67,9 @@ export function Transactions({
           onShowCards?.();
         }}
         onShowTransactions={() => undefined}
+        onShowSpending={() => {
+          onShowSpending?.();
+        }}
       />
 
       <main className="page">

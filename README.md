@@ -6,7 +6,7 @@ Finora is a personal finance application. This repository is the product. Produc
 
 ## Current scope
 
-The app shows the existing dashboard: overview, accounts, recent transactions, and account filtering. A dedicated Cards view lists each card’s balance, limit, available credit, utilization, due date, and payment status, and shows the transactions linked to a selected card. A dedicated Transactions view lists every financial event with its date, amount, event type, and account/card context, and lets a user inspect one transaction at a time.
+The app shows the existing dashboard: overview, accounts, recent transactions, and account filtering. A dedicated Cards view lists each card’s balance, limit, available credit, utilization, due date, and payment status, and shows the transactions linked to a selected card. A dedicated Transactions view lists every financial event with its date, amount, event type, and account/card context, and lets a user inspect one transaction at a time. A dedicated Spending view shows monthly income, spending, and savings for an explicit selected month, plus the income and spending transactions behind those totals.
 
 The first domain slice now includes:
 
@@ -19,6 +19,8 @@ Balances live on the account or card they belong to. The dashboard now calculate
 - **Net worth** = bank + cash + investment − card outstanding balances
 - **Card utilization** = outstanding balance / credit limit
 - **Monthly spending** = expenses + card purchases in the selected month
+- **Monthly income** = income events in the selected month
+- **Monthly savings** = monthly income − monthly spending
 
 Income, transfers, card payments, and investment events are not spending. Credit limits are not assets or liabilities. These calculations assume the fixture snapshot is a single currency (USD) and do not convert FX.
 

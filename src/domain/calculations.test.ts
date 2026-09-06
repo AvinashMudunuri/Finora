@@ -7,6 +7,8 @@ import {
 import type { Account, Card, Transaction } from "./types.ts";
 import {
   calculateCardUtilization,
+  calculateMonthlyIncome,
+  calculateMonthlySavings,
   calculateMonthlySpending,
   calculateNetWorth,
 } from "./calculations.ts";
@@ -256,5 +258,157 @@ describe("monthly spending", () => {
       87.42,
       2,
     );
+  });
+});
+
+const mixedMonth: Transaction[] = [
+  transaction({
+    id: "income",
+    date: "2026-08-01",
+    amount: 1000,
+    eventType: "income",
+    accountId: "acc-checking",
+  }),
+  transaction({
+    id: "expense",
+    date: "2026-08-02",
+    amount: 200,
+    eventType: "expense",
+    accountId: "acc-checking",
+  }),
+  transaction({
+    id: "card-buy",
+    date: "2026-08-03",
+    amount: 100,
+    eventType: "card_purchase",
+    cardId: "card-visa",
+  }),
+  transaction({
+    id: "transfer",
+    date: "2026-08-04",
+    amount: 500,
+    eventType: "transfer",
+    accountId: "acc-checking",
+    counterpartyAccountId: "acc-savings",
+  }),
+  transaction({
+    id: "card-pay",
+    date: "2026-08-05",
+    amount: 100,
+    eventType: "card_payment",
+    accountId: "acc-checking",
+    cardId: "card-visa",
+  }),
+  transaction({
+    id: "invest",
+    date: "2026-08-06",
+    amount: 200,
+    eventType: "investment",
+    accountId: "acc-investment",
+  }),
+  transaction({
+    id: "next-month-income",
+    date: "2026-09-01",
+    amount: 50,
+    eventType: "income",
+    accountId: "acc-checking",
+  }),
+];
+
+describe("monthly income", () => {
+  it("includes income and excludes every other event type", () => {
+    const result = calculateMonthlyIncome(mixedMonth, 2026, 8);
+
+    expect(result.total).toBe(1000);
+    expect(result.year).toBe(2026);
+    expect(result.month).toBe(8);
+  });
+
+  it("does not treat expense, card purchase, transfer, card payment, or investment as income", () => {
+    const result = calculateMonthlyIncome(mixedMonth, 2026, 8);
+
+    expect(result.total).not.toBe(1000 + 200);
+    expect(result.total).not.toBe(1000 + 100);
+    expect(result.total).not.toBe(1000 + 500);
+    expect(result.total).not.toBe(1000 + 100);
+    expect(result.total).not.toBe(1000 + 200);
+  });
+
+  it("respects the explicit year and month", () => {
+    expect(calculateMonthlyIncome(mixedMonth, 2026, 9).total).toBe(50);
+    expect(calculateMonthlyIncome(mixedMonth, 2026, 7).total).toBe(0);
+  });
+
+  it("returns zero when a month has no income", () => {
+    expect(
+      calculateMonthlyIncome(
+        [
+          transaction({
+            id: "only-spend",
+            date: "2026-08-10",
+            amount: 25,
+            eventType: "expense",
+            accountId: "acc-checking",
+          }),
+        ],
+        2026,
+        8,
+      ).total,
+    ).toBe(0);
+  });
+
+  it("calculates August and September income from the fixtures", () => {
+    expect(calculateMonthlyIncome(fixtureTransactions, 2026, 8).total).toBeCloseTo(
+      4.12,
+      2,
+    );
+    expect(calculateMonthlyIncome(fixtureTransactions, 2026, 9).total).toBeCloseTo(
+      3200,
+      2,
+    );
+  });
+});
+
+describe("monthly savings", () => {
+  it("is monthly income minus monthly spending and ignores other event types", () => {
+    const result = calculateMonthlySavings(mixedMonth, 2026, 8);
+
+    expect(result.income).toBe(1000);
+    expect(result.spending).toBe(300);
+    expect(result.savings).toBe(700);
+    expect(result.year).toBe(2026);
+    expect(result.month).toBe(8);
+  });
+
+  it("does not let transfer, card payment, or investment change savings", () => {
+    const result = calculateMonthlySavings(mixedMonth, 2026, 8);
+
+    expect(result.savings).not.toBe(700 - 500);
+    expect(result.savings).not.toBe(700 - 100);
+    expect(result.savings).not.toBe(700 - 200);
+  });
+
+  it("respects the explicit year and month", () => {
+    expect(calculateMonthlySavings(mixedMonth, 2026, 9).savings).toBe(50);
+    expect(calculateMonthlySavings([], 2026, 8)).toEqual({
+      year: 2026,
+      month: 8,
+      income: 0,
+      spending: 0,
+      savings: 0,
+      currency: "USD",
+    });
+  });
+
+  it("reuses the existing income and spending calculations for the fixtures", () => {
+    const september = calculateMonthlySavings(fixtureTransactions, 2026, 9);
+    const august = calculateMonthlySavings(fixtureTransactions, 2026, 8);
+
+    expect(september.income).toBeCloseTo(3200, 2);
+    expect(september.spending).toBeCloseTo(87.42, 2);
+    expect(september.savings).toBeCloseTo(3112.58, 2);
+    expect(august.income).toBeCloseTo(4.12, 2);
+    expect(august.spending).toBeCloseTo(2049.61, 2);
+    expect(august.savings).toBeCloseTo(4.12 - 2049.61, 2);
   });
 });

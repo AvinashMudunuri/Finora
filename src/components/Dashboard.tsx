@@ -26,6 +26,7 @@ export type DashboardProps = {
   transactions: Transaction[];
   onShowCards?: () => void;
   onShowTransactions?: () => void;
+  onShowSpending?: () => void;
   onOpenCard?: (cardId: string) => void;
   onOpenTransaction?: (transactionId: string) => void;
 };
@@ -36,6 +37,7 @@ export function Dashboard({
   transactions,
   onShowCards,
   onShowTransactions,
+  onShowSpending,
   onOpenCard,
   onOpenTransaction,
 }: DashboardProps) {
@@ -77,6 +79,9 @@ export function Dashboard({
         }}
         onShowTransactions={() => {
           onShowTransactions?.();
+        }}
+        onShowSpending={() => {
+          onShowSpending?.();
         }}
       />
 
@@ -121,6 +126,15 @@ export function Dashboard({
                     ? formatMonth(spending.year, spending.month)
                     : "No transactions in this snapshot"}
                 </p>
+                {onShowSpending ? (
+                  <button
+                    type="button"
+                    className="inline-action"
+                    onClick={onShowSpending}
+                  >
+                    View spending
+                  </button>
+                ) : null}
               </article>
               <article className="stat-card">
                 <h3>Credit cards</h3>

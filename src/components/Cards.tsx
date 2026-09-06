@@ -23,6 +23,7 @@ export type CardsProps = {
   onSelectCard: (cardId: string) => void;
   onShowDashboard?: () => void;
   onShowTransactions?: () => void;
+  onShowSpending?: () => void;
   onOpenTransaction?: (transactionId: string) => void;
 };
 
@@ -33,6 +34,7 @@ export function Cards({
   onSelectCard,
   onShowDashboard,
   onShowTransactions,
+  onShowSpending,
   onOpenTransaction,
 }: CardsProps) {
   const utilizationById = useMemo(() => {
@@ -59,6 +61,9 @@ export function Cards({
         onShowCards={() => undefined}
         onShowTransactions={() => {
           onShowTransactions?.();
+        }}
+        onShowSpending={() => {
+          onShowSpending?.();
         }}
       />
 

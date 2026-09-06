@@ -101,6 +101,88 @@ export function calculateMonthlySpending(
   };
 }
 
+export function calculateMonthlyIncome(
+  transactions: Transaction[],
+  year: number,
+  month: number,
+): MonthlySpendingResult {
+  const total = transactions.reduce((sum, transaction) => {
+    if (transaction.eventType !== "income") {
+      return sum;
+    }
+
+    if (!isInMonth(transaction.date, year, month)) {
+      return sum;
+    }
+
+    return sum + transaction.amount;
+  }, 0);
+
+  return {
+    year,
+    month,
+    total,
+    currency: sharedCurrency(transactions.map((transaction) => transaction.currency)),
+  };
+}
+
+export type MonthlySavingsResult = {
+  year: number;
+  month: number;
+  income: number;
+  spending: number;
+  savings: number;
+  currency: CurrencyCode;
+};
+
+export function calculateMonthlySavings(
+  transactions: Transaction[],
+  year: number,
+  month: number,
+): MonthlySavingsResult {
+  const income = calculateMonthlyIncome(transactions, year, month);
+  const spending = calculateMonthlySpending(transactions, year, month);
+
+  return {
+    year,
+    month,
+    income: income.total,
+    spending: spending.total,
+    savings: income.total - spending.total,
+    currency: income.currency,
+  };
+}
+
+export function listMonthlyIncomeTransactions(
+  transactions: Transaction[],
+  year: number,
+  month: number,
+): Transaction[] {
+  return transactions
+    .filter(
+      (transaction) =>
+        transaction.eventType === "income" &&
+        isInMonth(transaction.date, year, month),
+    )
+    .slice()
+    .sort(compareNewestFirst);
+}
+
+export function listMonthlySpendingTransactions(
+  transactions: Transaction[],
+  year: number,
+  month: number,
+): Transaction[] {
+  return transactions
+    .filter(
+      (transaction) =>
+        isSpendingEvent(transaction.eventType) &&
+        isInMonth(transaction.date, year, month),
+    )
+    .slice()
+    .sort(compareNewestFirst);
+}
+
 export function latestActivityMonth(
   transactions: Transaction[],
 ): { year: number; month: number } | null {
@@ -117,6 +199,14 @@ export function latestActivityMonth(
   }
 
   return parseYearMonth(latest.date);
+}
+
+function compareNewestFirst(left: Transaction, right: Transaction): number {
+  if (left.date !== right.date) {
+    return left.date < right.date ? 1 : -1;
+  }
+
+  return right.id.localeCompare(left.id);
 }
 
 function isSpendingEvent(eventType: Transaction["eventType"]): boolean {
