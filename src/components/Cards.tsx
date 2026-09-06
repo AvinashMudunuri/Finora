@@ -280,24 +280,22 @@ function CardFacts({
         </dd>
       </div>
       <div>
+        <dt>Minimum payment</dt>
+        <dd>{formatCurrency(card.minimumPayment, card.currency)}</dd>
+      </div>
+      <div>
         <dt>Payment status</dt>
         <dd>{paymentStatusLabel(card.paymentStatus)}</dd>
       </div>
       {includeStatementAndMinimum ? (
-        <>
-          <div>
-            <dt>Statement end</dt>
-            <dd>
-              <time dateTime={card.statementPeriodEnd}>
-                {formatDate(card.statementPeriodEnd)}
-              </time>
-            </dd>
-          </div>
-          <div>
-            <dt>Minimum payment</dt>
-            <dd>{formatCurrency(card.minimumPayment, card.currency)}</dd>
-          </div>
-        </>
+        <div>
+          <dt>Statement end</dt>
+          <dd>
+            <time dateTime={card.statementPeriodEnd}>
+              {formatDate(card.statementPeriodEnd)}
+            </time>
+          </dd>
+        </div>
       ) : null}
     </dl>
   );
