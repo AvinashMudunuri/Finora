@@ -1,6 +1,9 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
+import { fixtureTransactions } from "../data/fixtures.ts";
+import { calculateSpendingChange } from "../domain/calculations.ts";
+import { formatCurrency, formatMonth } from "../domain/finance.ts";
 import App from "./App.tsx";
 
 describe("Finora app navigation", () => {
@@ -199,6 +202,22 @@ describe("Finora app navigation", () => {
       screen.getByRole("heading", { level: 1, name: "Spending" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "September 2026" })).toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: "Spending change" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Inspect spending" })).not.toBeInTheDocument();
+
+    const insight = calculateSpendingChange(fixtureTransactions);
+    const region = screen.getByRole("region", { name: "Spending change" });
+    expect(
+      within(region).getByRole("heading", { name: "Spending decreased" }),
+    ).toBeInTheDocument();
+    expect(
+      within(region).getByText(
+        `You spent ${formatCurrency(insight!.currentSpending, insight!.currency)} this month, compared with ${formatCurrency(insight!.previousSpending, insight!.currency)} last month.`,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(region).getByText(
+        `${formatMonth(insight!.currentPeriod.year, insight!.currentPeriod.month)} compared with ${formatMonth(insight!.previousPeriod.year, insight!.previousPeriod.month)}`,
+      ),
+    ).toBeInTheDocument();
   });
 });
