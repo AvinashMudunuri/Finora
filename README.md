@@ -2,7 +2,7 @@
 
 Your financial life, clearly connected.
 
-Finora is a personal finance application. This repository is the product. Product requirements live in the Finora PRD; this README only describes the current implementation.
+Finora is a personal finance application. This repository is the product. Product requirements live in [`docs/product/PRD.md`](docs/product/PRD.md); this README only describes the current implementation.
 
 ## Current scope
 
