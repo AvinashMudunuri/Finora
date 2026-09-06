@@ -54,6 +54,40 @@ export function calculateNetWorth(
   };
 }
 
+export type AssetBreakdown = {
+  bank: number;
+  cash: number;
+  investment: number;
+  total: number;
+  liquid: number;
+  currency: CurrencyCode;
+};
+
+export function calculateAssetBreakdown(accounts: Account[]): AssetBreakdown {
+  const bank = accounts.reduce((total, account) => {
+    return account.type === "bank" ? total + account.balance : total;
+  }, 0);
+  const cash = accounts.reduce((total, account) => {
+    return account.type === "cash" ? total + account.balance : total;
+  }, 0);
+  const investment = accounts.reduce((total, account) => {
+    return account.type === "investment" ? total + account.balance : total;
+  }, 0);
+
+  return {
+    bank,
+    cash,
+    investment,
+    total: bank + cash + investment,
+    liquid: bank + cash,
+    currency: sharedCurrency(accounts.map((account) => account.currency)),
+  };
+}
+
+export function calculateLiquidAssets(accounts: Account[]): number {
+  return calculateAssetBreakdown(accounts).liquid;
+}
+
 export function calculateCardUtilization(
   cards: Card[],
 ): CardUtilizationResult[] {

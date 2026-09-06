@@ -1,12 +1,16 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   fixtureAccounts,
   fixtureCards,
   fixtureTransactions,
 } from "../data/fixtures.ts";
 import {
+  calculateAssetBreakdown,
+  calculateLiquidAssets,
+  calculateMonthlyIncome,
+  calculateMonthlySavings,
   calculateMonthlySpending,
   calculateNetWorth,
 } from "../domain/calculations.ts";
@@ -206,5 +210,77 @@ describe("Finora dashboard", () => {
     await user.click(screen.getByRole("button", { name: "New Brokerage" }));
 
     expect(screen.getByText("No recent transactions for this account.")).toBeInTheDocument();
+  });
+
+  it("shows assets, liabilities, and the asset breakdown from existing calculations", () => {
+    renderDashboard();
+
+    const overview = screen.getByRole("region", { name: "Overview" });
+    const worth = calculateNetWorth(fixtureAccounts, fixtureCards);
+    const assets = calculateAssetBreakdown(fixtureAccounts);
+    const liquid = calculateLiquidAssets(fixtureAccounts);
+
+    expect(within(overview).getByRole("heading", { name: "Assets" })).toBeInTheDocument();
+    expect(within(overview).getByRole("heading", { name: "Liabilities" })).toBeInTheDocument();
+    expect(
+      within(overview).getAllByText(formatCurrency(worth.assets, worth.currency))
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(overview).getAllByText(
+        formatCurrency(worth.liabilities, worth.currency),
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(overview).getByText(formatCurrency(assets.bank, "USD")),
+    ).toBeInTheDocument();
+    expect(
+      within(overview).getByText(formatCurrency(assets.cash, "USD")),
+    ).toBeInTheDocument();
+    expect(
+      within(overview).getByText(formatCurrency(assets.investment, "USD")),
+    ).toBeInTheDocument();
+    expect(
+      within(overview).getByText(formatCurrency(liquid, "USD")),
+    ).toBeInTheDocument();
+    expect(within(overview).getByText("Assets − liabilities")).toBeInTheDocument();
+  });
+
+  it("shows monthly income and savings for the latest fixture month", () => {
+    renderDashboard();
+
+    const overview = screen.getByRole("region", { name: "Overview" });
+    const income = calculateMonthlyIncome(fixtureTransactions, 2026, 9);
+    const savings = calculateMonthlySavings(fixtureTransactions, 2026, 9);
+
+    expect(
+      within(overview).getByText(formatCurrency(income.total, "USD")),
+    ).toBeInTheDocument();
+    expect(
+      within(overview).getByText(formatCurrency(savings.savings, "USD")),
+    ).toBeInTheDocument();
+    expect(within(overview).queryByText("$4.12")).not.toBeInTheDocument();
+  });
+
+  it("opens accounts and cards from the financial-position cards when callbacks are provided", async () => {
+    const user = userEvent.setup();
+    const onShowAccounts = vi.fn();
+    const onShowCards = vi.fn();
+
+    render(
+      <Dashboard
+        accounts={fixtureAccounts}
+        cards={fixtureCards}
+        transactions={fixtureTransactions}
+        onShowAccounts={onShowAccounts}
+        onShowCards={onShowCards}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "View accounts" }));
+    await user.click(screen.getByRole("button", { name: "View cards" }));
+
+    expect(onShowAccounts).toHaveBeenCalledTimes(1);
+    expect(onShowCards).toHaveBeenCalledTimes(1);
   });
 });

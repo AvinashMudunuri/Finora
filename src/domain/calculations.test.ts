@@ -6,7 +6,9 @@ import {
 } from "../data/fixtures.ts";
 import type { Account, Card, Transaction } from "./types.ts";
 import {
+  calculateAssetBreakdown,
   calculateCardUtilization,
+  calculateLiquidAssets,
   calculateMonthlyIncome,
   calculateMonthlySavings,
   calculateMonthlySpending,
@@ -112,6 +114,73 @@ describe("net worth", () => {
     expect(first.liabilities).toBeCloseTo(2168.59, 2);
     expect(first.netWorth).toBeCloseTo(23168.43, 2);
     expect(first.currency).toBe("USD");
+  });
+});
+
+describe("asset breakdown", () => {
+  it("totals bank, cash, and investment separately and sums them as assets", () => {
+    const result = calculateAssetBreakdown([
+      account({ id: "bank-a", type: "bank", balance: 100 }),
+      account({ id: "bank-b", type: "bank", balance: 40 }),
+      account({ id: "cash", type: "cash", balance: 20 }),
+      account({ id: "invest", type: "investment", balance: 50 }),
+    ]);
+
+    expect(result.bank).toBe(140);
+    expect(result.cash).toBe(20);
+    expect(result.investment).toBe(50);
+    expect(result.total).toBe(210);
+    expect(result.liquid).toBe(160);
+    expect(result.currency).toBe("USD");
+  });
+
+  it("returns zeros for an empty account list", () => {
+    expect(calculateAssetBreakdown([])).toEqual({
+      bank: 0,
+      cash: 0,
+      investment: 0,
+      total: 0,
+      liquid: 0,
+      currency: "USD",
+    });
+  });
+
+  it("matches fixture assets and stays deterministic", () => {
+    const first = calculateAssetBreakdown(fixtureAccounts);
+    const second = calculateAssetBreakdown(fixtureAccounts);
+    const worth = calculateNetWorth(fixtureAccounts, fixtureCards);
+
+    expect(first).toEqual(second);
+    expect(first.bank).toBeCloseTo(4286.47 + 12450, 2);
+    expect(first.cash).toBeCloseTo(180, 2);
+    expect(first.investment).toBeCloseTo(8420.55, 2);
+    expect(first.total).toBeCloseTo(worth.assets, 2);
+    expect(first.liquid).toBeCloseTo(first.bank + first.cash, 2);
+  });
+});
+
+describe("liquid assets", () => {
+  it("includes bank and cash and excludes investment", () => {
+    expect(
+      calculateLiquidAssets([
+        account({ id: "bank", type: "bank", balance: 100 }),
+        account({ id: "cash", type: "cash", balance: 20 }),
+        account({ id: "invest", type: "investment", balance: 50 }),
+      ]),
+    ).toBe(120);
+  });
+
+  it("returns zero for an empty account list", () => {
+    expect(calculateLiquidAssets([])).toBe(0);
+  });
+
+  it("is deterministic for the fixture snapshot", () => {
+    const first = calculateLiquidAssets(fixtureAccounts);
+    const second = calculateLiquidAssets(fixtureAccounts);
+
+    expect(first).toBe(second);
+    expect(first).toBeCloseTo(4286.47 + 12450 + 180, 2);
+    expect(first).not.toBeCloseTo(4286.47 + 12450 + 180 + 8420.55, 2);
   });
 });
 
