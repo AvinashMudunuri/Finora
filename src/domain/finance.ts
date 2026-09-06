@@ -88,6 +88,17 @@ export function getRecentTransactions(
   ).slice(0, limit);
 }
 
+export function getAccountTransactions(
+  transactions: Transaction[],
+  accountId: string,
+): Transaction[] {
+  return listTransactions(transactions).filter(
+    (transaction) =>
+      transaction.accountId === accountId ||
+      transaction.counterpartyAccountId === accountId,
+  );
+}
+
 export function getCardTransactions(
   transactions: Transaction[],
   cardId: string,

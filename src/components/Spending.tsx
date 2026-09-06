@@ -24,6 +24,7 @@ export type SpendingProps = {
   transactions: Transaction[];
   onOpenTransaction?: (transactionId: string) => void;
   onShowDashboard?: () => void;
+  onShowAccounts?: () => void;
   onShowCards?: () => void;
   onShowTransactions?: () => void;
 };
@@ -46,6 +47,7 @@ export function Spending({
   transactions,
   onOpenTransaction,
   onShowDashboard,
+  onShowAccounts,
   onShowCards,
   onShowTransactions,
 }: SpendingProps) {
@@ -97,6 +99,9 @@ export function Spending({
         current="spending"
         onShowDashboard={() => {
           onShowDashboard?.();
+        }}
+        onShowAccounts={() => {
+          onShowAccounts?.();
         }}
         onShowCards={() => {
           onShowCards?.();

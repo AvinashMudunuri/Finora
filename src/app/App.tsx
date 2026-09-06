@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Accounts } from "../components/Accounts.tsx";
 import { Cards } from "../components/Cards.tsx";
 import { Dashboard } from "../components/Dashboard.tsx";
 import { Spending } from "../components/Spending.tsx";
@@ -9,16 +10,47 @@ import {
   fixtureTransactions,
 } from "../data/fixtures.ts";
 
-type AppView = "dashboard" | "cards" | "transactions" | "spending";
+type AppView = "dashboard" | "accounts" | "cards" | "transactions" | "spending";
 
 export default function App() {
   const [view, setView] = useState<AppView>("dashboard");
+  const [selectedAccountId, setSelectedAccountId] = useState(
+    fixtureAccounts[0]?.id ?? "",
+  );
   const [selectedCardId, setSelectedCardId] = useState(
     fixtureCards[0]?.id ?? "",
   );
   const [selectedTransactionId, setSelectedTransactionId] = useState(
     fixtureTransactions[0]?.id ?? "",
   );
+
+  if (view === "accounts") {
+    return (
+      <Accounts
+        accounts={fixtureAccounts}
+        cards={fixtureCards}
+        transactions={fixtureTransactions}
+        selectedAccountId={selectedAccountId}
+        onSelectAccount={setSelectedAccountId}
+        onShowDashboard={() => {
+          setView("dashboard");
+        }}
+        onShowCards={() => {
+          setView("cards");
+        }}
+        onShowTransactions={() => {
+          setView("transactions");
+        }}
+        onShowSpending={() => {
+          setView("spending");
+        }}
+        onOpenTransaction={(transactionId) => {
+          setSelectedTransactionId(transactionId);
+          setView("transactions");
+        }}
+      />
+    );
+  }
 
   if (view === "cards") {
     return (
@@ -29,6 +61,9 @@ export default function App() {
         onSelectCard={setSelectedCardId}
         onShowDashboard={() => {
           setView("dashboard");
+        }}
+        onShowAccounts={() => {
+          setView("accounts");
         }}
         onShowTransactions={() => {
           setView("transactions");
@@ -55,6 +90,9 @@ export default function App() {
         onShowDashboard={() => {
           setView("dashboard");
         }}
+        onShowAccounts={() => {
+          setView("accounts");
+        }}
         onShowCards={() => {
           setView("cards");
         }}
@@ -73,6 +111,9 @@ export default function App() {
         transactions={fixtureTransactions}
         onShowDashboard={() => {
           setView("dashboard");
+        }}
+        onShowAccounts={() => {
+          setView("accounts");
         }}
         onShowCards={() => {
           setView("cards");
@@ -93,6 +134,9 @@ export default function App() {
       accounts={fixtureAccounts}
       cards={fixtureCards}
       transactions={fixtureTransactions}
+      onShowAccounts={() => {
+        setView("accounts");
+      }}
       onShowCards={() => {
         setView("cards");
       }}
@@ -101,6 +145,10 @@ export default function App() {
       }}
       onShowSpending={() => {
         setView("spending");
+      }}
+      onOpenAccount={(accountId) => {
+        setSelectedAccountId(accountId);
+        setView("accounts");
       }}
       onOpenCard={(cardId) => {
         setSelectedCardId(cardId);

@@ -6,6 +6,7 @@ import {
   eventTypeLabel,
   formatCurrency,
   formatDate,
+  getAccountTransactions,
   getCardTransactions,
   getRecentTransactions,
   listTransactions,
@@ -168,6 +169,111 @@ describe("recent transactions", () => {
 describe("date formatting", () => {
   it("formats ISO dates as readable calendar days", () => {
     expect(formatDate("2026-09-03")).toBe("Sep 3, 2026");
+  });
+});
+
+describe("account transactions", () => {
+  const transactions: Transaction[] = [
+    {
+      id: "income",
+      date: "2026-09-03",
+      description: "Payroll",
+      amount: 1000,
+      currency: "USD",
+      eventType: "income",
+      accountId: "acc-checking",
+      counterpartyAccountId: null,
+      cardId: null,
+    },
+    {
+      id: "expense",
+      date: "2026-09-02",
+      description: "Groceries",
+      amount: 40,
+      currency: "USD",
+      eventType: "expense",
+      accountId: "acc-checking",
+      counterpartyAccountId: null,
+      cardId: null,
+    },
+    {
+      id: "transfer",
+      date: "2026-08-28",
+      description: "Transfer to savings",
+      amount: 200,
+      currency: "USD",
+      eventType: "transfer",
+      accountId: "acc-checking",
+      counterpartyAccountId: "acc-savings",
+      cardId: null,
+    },
+    {
+      id: "card-pay",
+      date: "2026-09-01",
+      description: "Payment — Thank you",
+      amount: 100,
+      currency: "USD",
+      eventType: "card_payment",
+      accountId: "acc-checking",
+      counterpartyAccountId: null,
+      cardId: "card-visa",
+    },
+    {
+      id: "card-buy",
+      date: "2026-08-30",
+      description: "Dinner",
+      amount: 64,
+      currency: "USD",
+      eventType: "card_purchase",
+      accountId: null,
+      counterpartyAccountId: null,
+      cardId: "card-visa",
+    },
+    {
+      id: "invest",
+      date: "2026-08-12",
+      description: "Dividend",
+      amount: 18,
+      currency: "USD",
+      eventType: "investment",
+      accountId: "acc-investment",
+      counterpartyAccountId: null,
+      cardId: null,
+    },
+  ];
+
+  it("includes transactions with an explicit accountId", () => {
+    expect(
+      getAccountTransactions(transactions, "acc-checking").map((tx) => tx.id),
+    ).toEqual(["income", "expense", "card-pay", "transfer"]);
+  });
+
+  it("includes transfers for both the source and destination accounts", () => {
+    expect(
+      getAccountTransactions(transactions, "acc-savings").map((tx) => tx.id),
+    ).toEqual(["transfer"]);
+    expect(
+      getAccountTransactions(transactions, "acc-checking").map((tx) => tx.id),
+    ).toContain("transfer");
+  });
+
+  it("includes card payments on the funding account", () => {
+    expect(
+      getAccountTransactions(transactions, "acc-checking").map((tx) => tx.id),
+    ).toContain("card-pay");
+  });
+
+  it("does not attribute a card purchase to an account because a later payment exists", () => {
+    expect(
+      getAccountTransactions(transactions, "acc-checking").map((tx) => tx.id),
+    ).not.toContain("card-buy");
+  });
+
+  it("orders newest first and returns an empty list when nothing is related", () => {
+    expect(getAccountTransactions(transactions, "acc-checking")[0]?.id).toBe(
+      "income",
+    );
+    expect(getAccountTransactions(transactions, "acc-missing")).toEqual([]);
   });
 });
 

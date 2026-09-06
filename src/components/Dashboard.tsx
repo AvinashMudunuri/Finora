@@ -27,7 +27,9 @@ export type DashboardProps = {
   onShowCards?: () => void;
   onShowTransactions?: () => void;
   onShowSpending?: () => void;
+  onShowAccounts?: () => void;
   onOpenCard?: (cardId: string) => void;
+  onOpenAccount?: (accountId: string) => void;
   onOpenTransaction?: (transactionId: string) => void;
 };
 
@@ -38,7 +40,9 @@ export function Dashboard({
   onShowCards,
   onShowTransactions,
   onShowSpending,
+  onShowAccounts,
   onOpenCard,
+  onOpenAccount,
   onOpenTransaction,
 }: DashboardProps) {
   const [accountFilter, setAccountFilter] = useState("all");
@@ -74,6 +78,9 @@ export function Dashboard({
       <SiteHeader
         current="dashboard"
         onShowDashboard={() => undefined}
+        onShowAccounts={() => {
+          onShowAccounts?.();
+        }}
         onShowCards={() => {
           onShowCards?.();
         }}
@@ -163,9 +170,9 @@ export function Dashboard({
             <p className="empty-state">No accounts yet.</p>
           ) : (
             <ul className="account-grid">
-              {accounts.map((account) => (
-                <li key={account.id}>
-                  <article className="account-card">
+              {accounts.map((account) => {
+                const accountBody = (
+                  <>
                     <div className="account-card-top">
                       <h3>{account.name}</h3>
                       <p className="account-type">
@@ -180,9 +187,28 @@ export function Dashboard({
                         ? `Current value · ${account.currency}`
                         : `Available balance · ${account.currency}`}
                     </p>
-                  </article>
-                </li>
-              ))}
+                  </>
+                );
+
+                return (
+                  <li key={account.id}>
+                    {onOpenAccount ? (
+                      <button
+                        type="button"
+                        className="account-card account-card-button"
+                        aria-label={`View ${account.name}`}
+                        onClick={() => {
+                          onOpenAccount(account.id);
+                        }}
+                      >
+                        {accountBody}
+                      </button>
+                    ) : (
+                      <article className="account-card">{accountBody}</article>
+                    )}
+                  </li>
+                );
+              })}
               {cards.map((card) => {
                 const cardBody = (
                   <>
