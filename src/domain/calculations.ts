@@ -309,6 +309,55 @@ export function calculateSpendingChange(
   };
 }
 
+export const SPENDING_CHANGE_DRIVER_LIMIT = 3;
+
+export type SpendingChangeDriver = {
+  transactionId: string;
+  description: string;
+  amount: number;
+  period: SpendingChangePeriod;
+};
+
+export function listSpendingChangeDrivers(
+  transactions: Transaction[],
+  change: SpendingChangeResult,
+): SpendingChangeDriver[] {
+  if (change.direction === "unchanged") {
+    return [];
+  }
+
+  const period =
+    change.direction === "decreased"
+      ? change.previousPeriod
+      : change.currentPeriod;
+
+  return listMonthlySpendingTransactions(
+    transactions,
+    period.year,
+    period.month,
+  )
+    .slice()
+    .sort(compareSpendingChangeDrivers)
+    .slice(0, SPENDING_CHANGE_DRIVER_LIMIT)
+    .map((transaction) => ({
+      transactionId: transaction.id,
+      description: transaction.description,
+      amount: transaction.amount,
+      period,
+    }));
+}
+
+function compareSpendingChangeDrivers(
+  left: Transaction,
+  right: Transaction,
+): number {
+  if (left.amount !== right.amount) {
+    return right.amount - left.amount;
+  }
+
+  return compareNewestFirst(left, right);
+}
+
 export function latestActivityMonth(
   transactions: Transaction[],
 ): { year: number; month: number } | null {

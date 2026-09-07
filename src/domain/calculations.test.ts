@@ -16,6 +16,8 @@ import {
   calculateMonthlySpending,
   calculateNetWorth,
   calculateSpendingChange,
+  listSpendingChangeDrivers,
+  SPENDING_CHANGE_DRIVER_LIMIT,
 } from "./calculations.ts";
 
 function account(
@@ -805,5 +807,275 @@ describe("spending change", () => {
 
   it("returns null when no latest month can be determined", () => {
     expect(calculateSpendingChange([])).toBeNull();
+  });
+});
+
+describe("spending change drivers", () => {
+  it("uses previous-period spending as drivers when spending decreased", () => {
+    const transactions = [
+      transaction({
+        id: "prev-rent",
+        date: "2026-08-10",
+        amount: 900,
+        eventType: "expense",
+        accountId: "acc-checking",
+        description: "Rent",
+      }),
+      transaction({
+        id: "current-food",
+        date: "2026-09-02",
+        amount: 40,
+        eventType: "expense",
+        accountId: "acc-checking",
+        description: "Groceries",
+      }),
+    ];
+    const change = calculateSpendingChange(transactions);
+
+    expect(change?.direction).toBe("decreased");
+    expect(listSpendingChangeDrivers(transactions, change!)).toEqual([
+      {
+        transactionId: "prev-rent",
+        description: "Rent",
+        amount: 900,
+        period: change!.previousPeriod,
+      },
+    ]);
+  });
+
+  it("uses current-period spending as drivers when spending increased", () => {
+    const transactions = [
+      transaction({
+        id: "prev-food",
+        date: "2026-08-10",
+        amount: 20,
+        eventType: "expense",
+        accountId: "acc-checking",
+        description: "Older grocery",
+      }),
+      transaction({
+        id: "current-travel",
+        date: "2026-09-02",
+        amount: 180,
+        eventType: "card_purchase",
+        cardId: "card-visa",
+        description: "Airline ticket",
+      }),
+    ];
+    const change = calculateSpendingChange(transactions);
+
+    expect(change?.direction).toBe("increased");
+    expect(listSpendingChangeDrivers(transactions, change!)).toEqual([
+      {
+        transactionId: "current-travel",
+        description: "Airline ticket",
+        amount: 180,
+        period: change!.currentPeriod,
+      },
+    ]);
+  });
+
+  it("limits drivers to the product rule and keeps amount order", () => {
+    const transactions = [
+      transaction({
+        id: "prev-a",
+        date: "2026-08-04",
+        amount: 10,
+        eventType: "expense",
+        accountId: "acc-checking",
+        description: "Coffee",
+      }),
+      transaction({
+        id: "prev-b",
+        date: "2026-08-05",
+        amount: 400,
+        eventType: "expense",
+        accountId: "acc-checking",
+        description: "Furniture",
+      }),
+      transaction({
+        id: "prev-c",
+        date: "2026-08-06",
+        amount: 250,
+        eventType: "card_purchase",
+        cardId: "card-visa",
+        description: "Appliances",
+      }),
+      transaction({
+        id: "prev-d",
+        date: "2026-08-07",
+        amount: 80,
+        eventType: "expense",
+        accountId: "acc-checking",
+        description: "Utilities",
+      }),
+      transaction({
+        id: "current-small",
+        date: "2026-09-02",
+        amount: 5,
+        eventType: "expense",
+        accountId: "acc-checking",
+        description: "Snack",
+      }),
+    ];
+    const change = calculateSpendingChange(transactions);
+    const drivers = listSpendingChangeDrivers(transactions, change!);
+
+    expect(SPENDING_CHANGE_DRIVER_LIMIT).toBe(3);
+    expect(drivers.map((driver) => driver.transactionId)).toEqual([
+      "prev-b",
+      "prev-c",
+      "prev-d",
+    ]);
+    expect(drivers).toHaveLength(3);
+  });
+
+  it("breaks amount ties with newest date, then higher id", () => {
+    const transactions = [
+      transaction({
+        id: "tie-old",
+        date: "2026-08-01",
+        amount: 50,
+        eventType: "expense",
+        accountId: "acc-checking",
+        description: "Older same amount",
+      }),
+      transaction({
+        id: "tie-a",
+        date: "2026-08-10",
+        amount: 50,
+        eventType: "expense",
+        accountId: "acc-checking",
+        description: "Same day A",
+      }),
+      transaction({
+        id: "tie-b",
+        date: "2026-08-10",
+        amount: 50,
+        eventType: "card_purchase",
+        cardId: "card-visa",
+        description: "Same day B",
+      }),
+      transaction({
+        id: "current-small",
+        date: "2026-09-02",
+        amount: 1,
+        eventType: "expense",
+        accountId: "acc-checking",
+        description: "Snack",
+      }),
+    ];
+    const change = calculateSpendingChange(transactions);
+
+    expect(
+      listSpendingChangeDrivers(transactions, change!).map(
+        (driver) => driver.transactionId,
+      ),
+    ).toEqual(["tie-b", "tie-a", "tie-old"]);
+  });
+
+  it("does not treat income, transfers, card payments, or investment as drivers", () => {
+    const transactions = [
+      transaction({
+        id: "prev-income",
+        date: "2026-08-03",
+        amount: 1000,
+        eventType: "income",
+        accountId: "acc-checking",
+      }),
+      transaction({
+        id: "prev-transfer",
+        date: "2026-08-04",
+        amount: 400,
+        eventType: "transfer",
+        accountId: "acc-checking",
+        counterpartyAccountId: "acc-savings",
+      }),
+      transaction({
+        id: "prev-card-pay",
+        date: "2026-08-05",
+        amount: 200,
+        eventType: "card_payment",
+        accountId: "acc-checking",
+        cardId: "card-visa",
+      }),
+      transaction({
+        id: "prev-invest",
+        date: "2026-08-06",
+        amount: 150,
+        eventType: "investment",
+        accountId: "acc-investment",
+      }),
+      transaction({
+        id: "prev-spend",
+        date: "2026-08-07",
+        amount: 30,
+        eventType: "expense",
+        accountId: "acc-checking",
+        description: "Pharmacy",
+      }),
+      transaction({
+        id: "current-spend",
+        date: "2026-09-02",
+        amount: 12,
+        eventType: "card_purchase",
+        cardId: "card-visa",
+        description: "Transit",
+      }),
+    ];
+    const change = calculateSpendingChange(transactions);
+
+    expect(change?.direction).toBe("decreased");
+    expect(listSpendingChangeDrivers(transactions, change!)).toEqual([
+      {
+        transactionId: "prev-spend",
+        description: "Pharmacy",
+        amount: 30,
+        period: change!.previousPeriod,
+      },
+    ]);
+  });
+
+  it("returns no drivers when spending is unchanged", () => {
+    const transactions = [
+      transaction({
+        id: "prev-spend",
+        date: "2026-08-10",
+        amount: 40,
+        eventType: "expense",
+        accountId: "acc-checking",
+        description: "Older grocery",
+      }),
+      transaction({
+        id: "current-spend",
+        date: "2026-09-02",
+        amount: 40,
+        eventType: "expense",
+        accountId: "acc-checking",
+        description: "Newer grocery",
+      }),
+    ];
+    const change = calculateSpendingChange(transactions);
+
+    expect(change?.direction).toBe("unchanged");
+    expect(listSpendingChangeDrivers(transactions, change!)).toEqual([]);
+  });
+
+  it("returns no drivers when there is no spending change result", () => {
+    expect(calculateSpendingChange([])).toBeNull();
+  });
+
+  it("uses fixture spending transactions for the fixture decrease", () => {
+    const change = calculateSpendingChange(fixtureTransactions);
+    const drivers = listSpendingChangeDrivers(fixtureTransactions, change!);
+
+    expect(change?.direction).toBe("decreased");
+    expect(drivers.map((driver) => driver.transactionId)).toEqual([
+      "txn-004",
+      "txn-008",
+      "txn-005",
+    ]);
+    expect(drivers[0]?.description).toBe("Rent — Oak Street Apt");
+    expect(drivers[0]?.amount).toBe(1850);
   });
 });

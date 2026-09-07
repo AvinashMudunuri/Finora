@@ -15,6 +15,7 @@ import {
   calculateNetWorth,
   calculateSpendingChange,
   latestActivityMonth,
+  listSpendingChangeDrivers,
 } from "../domain/calculations.ts";
 import type { Account, Card, Transaction } from "../domain/types.ts";
 import {
@@ -552,6 +553,21 @@ describe("Finora dashboard", () => {
       ),
     ).toBeInTheDocument();
     expect(within(region).queryByText("Spending increased")).not.toBeInTheDocument();
+
+    const drivers = listSpendingChangeDrivers(fixtureTransactions, insight!);
+    const driverList = within(region).getByRole("list", {
+      name: "Spending change drivers",
+    });
+    expect(
+      within(region).getByText(
+        `Largest spending in ${formatMonth(drivers[0]!.period.year, drivers[0]!.period.month)}`,
+      ),
+    ).toBeInTheDocument();
+    expect(within(driverList).getByText("Rent — Oak Street Apt")).toBeInTheDocument();
+    expect(within(driverList).getByText("Dinner — Riverview")).toBeInTheDocument();
+    expect(within(driverList).getByText("Transit — Metro Card")).toBeInTheDocument();
+    expect(within(driverList).queryByText("Whole Foods Market")).not.toBeInTheDocument();
+    expect(within(driverList).queryByText("Payroll — Acme Corp")).not.toBeInTheDocument();
   });
 
   it("renders an increased insight from the calculated result, not hard-coded fixture copy", () => {
@@ -609,6 +625,12 @@ describe("Finora dashboard", () => {
     ).toBeInTheDocument();
     expect(screen.queryByText("Spending decreased")).not.toBeInTheDocument();
     expect(screen.queryByText("$87.42")).not.toBeInTheDocument();
+
+    const driverList = within(region).getByRole("list", {
+      name: "Spending change drivers",
+    });
+    expect(within(driverList).getByText("Newer grocery")).toBeInTheDocument();
+    expect(within(driverList).queryByText("Older grocery")).not.toBeInTheDocument();
   });
 
   it("renders a neutral insight when spending is unchanged", () => {
@@ -662,6 +684,11 @@ describe("Finora dashboard", () => {
         `You spent ${formatCurrency(40, "USD")} this month, compared with ${formatCurrency(40, "USD")} last month.`,
       ),
     ).toBeInTheDocument();
+    expect(
+      within(region).queryByRole("list", { name: "Spending change drivers" }),
+    ).not.toBeInTheDocument();
+    expect(within(region).queryByText("Older grocery")).not.toBeInTheDocument();
+    expect(within(region).queryByText("Largest spending in")).not.toBeInTheDocument();
   });
 
   it("does not render a spending change insight when there is no activity month", () => {
@@ -705,5 +732,26 @@ describe("Finora dashboard", () => {
     );
 
     expect(onShowSpending).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens a spending-change driver through the existing transaction callback", async () => {
+    const user = userEvent.setup();
+    const onOpenTransaction = vi.fn();
+
+    render(
+      <Dashboard
+        accounts={fixtureAccounts}
+        cards={fixtureCards}
+        transactions={fixtureTransactions}
+        onOpenTransaction={onOpenTransaction}
+      />,
+    );
+
+    const region = screen.getByRole("region", { name: "Spending change" });
+    await user.click(
+      within(region).getByRole("button", { name: "View Rent — Oak Street Apt" }),
+    );
+
+    expect(onOpenTransaction).toHaveBeenCalledWith("txn-004");
   });
 });
