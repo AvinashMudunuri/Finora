@@ -9,6 +9,7 @@ import {
   calculateAssetBreakdown,
   calculateCardUtilization,
   calculateHighCardUtilization,
+  calculateCardPaymentAttention,
   HIGH_CARD_UTILIZATION_THRESHOLD,
   calculateLiquidAssets,
   calculateMonthlyIncome,
@@ -304,6 +305,168 @@ describe("high card utilization", () => {
 
   it("does not surface fixture cards", () => {
     expect(calculateHighCardUtilization(fixtureCards)).toBeNull();
+  });
+});
+
+describe("card payment attention", () => {
+  it("selects an overdue card", () => {
+    const overdue = card({
+      id: "overdue",
+      creditLimit: 1000,
+      outstandingBalance: 200,
+      paymentStatus: "overdue",
+      paymentDueDate: "2026-08-15",
+      minimumPayment: 40,
+    });
+    const result = calculateCardPaymentAttention([overdue]);
+
+    expect(result).toEqual({
+      cardId: "overdue",
+      paymentStatus: "overdue",
+      paymentDueDate: "2026-08-15",
+      minimumPayment: 40,
+      outstandingBalance: 200,
+    });
+  });
+
+  it("selects a due card", () => {
+    const due = card({
+      id: "due",
+      creditLimit: 1000,
+      outstandingBalance: 150,
+      paymentStatus: "due",
+      paymentDueDate: "2026-09-22",
+      minimumPayment: 25,
+    });
+    const result = calculateCardPaymentAttention([due]);
+
+    expect(result).toEqual({
+      cardId: "due",
+      paymentStatus: "due",
+      paymentDueDate: "2026-09-22",
+      minimumPayment: 25,
+      outstandingBalance: 150,
+    });
+  });
+
+  it("ignores a current card", () => {
+    expect(
+      calculateCardPaymentAttention([
+        card({
+          id: "current",
+          creditLimit: 1000,
+          outstandingBalance: 100,
+          paymentStatus: "current",
+          minimumPayment: 20,
+        }),
+      ]),
+    ).toBeNull();
+  });
+
+  it("selects overdue before due", () => {
+    const result = calculateCardPaymentAttention([
+      card({
+        id: "due-first",
+        creditLimit: 1000,
+        outstandingBalance: 80,
+        paymentStatus: "due",
+        minimumPayment: 15,
+      }),
+      card({
+        id: "overdue-second",
+        creditLimit: 1000,
+        outstandingBalance: 90,
+        paymentStatus: "overdue",
+        paymentDueDate: "2026-08-01",
+        minimumPayment: 30,
+      }),
+    ]);
+
+    expect(result?.cardId).toBe("overdue-second");
+    expect(result?.paymentStatus).toBe("overdue");
+  });
+
+  it("breaks overdue ties using existing card-list order", () => {
+    const result = calculateCardPaymentAttention([
+      card({
+        id: "first-overdue",
+        creditLimit: 1000,
+        outstandingBalance: 50,
+        paymentStatus: "overdue",
+        paymentDueDate: "2026-08-20",
+        minimumPayment: 10,
+      }),
+      card({
+        id: "second-overdue",
+        creditLimit: 1000,
+        outstandingBalance: 75,
+        paymentStatus: "overdue",
+        paymentDueDate: "2026-08-01",
+        minimumPayment: 20,
+      }),
+    ]);
+
+    expect(result?.cardId).toBe("first-overdue");
+  });
+
+  it("breaks due ties using existing card-list order", () => {
+    const result = calculateCardPaymentAttention([
+      card({
+        id: "first-due",
+        creditLimit: 1000,
+        outstandingBalance: 50,
+        paymentStatus: "due",
+        paymentDueDate: "2026-09-30",
+        minimumPayment: 10,
+      }),
+      card({
+        id: "second-due",
+        creditLimit: 1000,
+        outstandingBalance: 75,
+        paymentStatus: "due",
+        paymentDueDate: "2026-09-01",
+        minimumPayment: 20,
+      }),
+    ]);
+
+    expect(result?.cardId).toBe("first-due");
+  });
+
+  it("returns null when no card requires attention", () => {
+    expect(
+      calculateCardPaymentAttention([
+        card({
+          id: "current-a",
+          creditLimit: 1000,
+          outstandingBalance: 10,
+          paymentStatus: "current",
+        }),
+        card({
+          id: "current-b",
+          creditLimit: 500,
+          outstandingBalance: 20,
+          paymentStatus: "current",
+        }),
+      ]),
+    ).toBeNull();
+  });
+
+  it("returns null when there are no cards", () => {
+    expect(calculateCardPaymentAttention([])).toBeNull();
+  });
+
+  it("returns stored payment-obligation evidence for the fixture due card", () => {
+    const result = calculateCardPaymentAttention(fixtureCards);
+    const visa = fixtureCards[0]!;
+
+    expect(result).toEqual({
+      cardId: visa.id,
+      paymentStatus: visa.paymentStatus,
+      paymentDueDate: visa.paymentDueDate,
+      minimumPayment: visa.minimumPayment,
+      outstandingBalance: visa.outstandingBalance,
+    });
+    expect(result?.paymentStatus).toBe("due");
   });
 });
 
