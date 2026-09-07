@@ -5,6 +5,7 @@ import { ACCOUNT_TYPES, TRANSACTION_EVENT_TYPES } from "../domain/types.ts";
 import { assertValidFinanceData } from "../domain/validate.ts";
 import {
   cardsWithCurrentPaymentStatus,
+  cardsWithVisaOverduePaymentStatus,
   fixtureAccounts,
   fixtureCards,
   fixtureTransactions,
@@ -191,6 +192,23 @@ describe("e2e-all-current dataset mapping", () => {
   it("keeps the default fixture cards outside the e2e-all-current Vite mode", () => {
     expect(import.meta.env.MODE).not.toBe("e2e-all-current");
     expect(loadAppCards()).toEqual(fixtureCards);
+    expect(loadAppCards()[0]?.paymentStatus).toBe("due");
+  });
+});
+
+describe("e2e-overdue dataset mapping", () => {
+  it("sets only Visa Rewards to overdue without mutating the default fixtures", () => {
+    const mapped = cardsWithVisaOverduePaymentStatus(fixtureCards);
+
+    expect(mapped[0]?.paymentStatus).toBe("overdue");
+    expect(mapped[0]?.name).toBe("Visa Rewards");
+    expect(mapped[0]?.minimumPayment).toBe(35);
+    expect(mapped[1]?.paymentStatus).toBe("current");
+    expect(fixtureCards[0]?.paymentStatus).toBe("due");
+  });
+
+  it("keeps the default fixture cards outside the e2e-overdue Vite mode", () => {
+    expect(import.meta.env.MODE).not.toBe("e2e-overdue");
     expect(loadAppCards()[0]?.paymentStatus).toBe("due");
   });
 });
