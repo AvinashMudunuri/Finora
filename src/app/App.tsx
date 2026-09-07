@@ -6,9 +6,11 @@ import { Spending } from "../components/Spending.tsx";
 import { Transactions } from "../components/Transactions.tsx";
 import {
   fixtureAccounts,
-  fixtureCards,
   fixtureTransactions,
+  loadAppCards,
 } from "../data/fixtures.ts";
+
+const appCards = loadAppCards();
 
 type AppView = "dashboard" | "accounts" | "cards" | "transactions" | "spending";
 
@@ -18,7 +20,7 @@ export default function App() {
     fixtureAccounts[0]?.id ?? "",
   );
   const [selectedCardId, setSelectedCardId] = useState(
-    fixtureCards[0]?.id ?? "",
+    appCards[0]?.id ?? "",
   );
   const [selectedTransactionId, setSelectedTransactionId] = useState(
     fixtureTransactions[0]?.id ?? "",
@@ -28,7 +30,7 @@ export default function App() {
     return (
       <Accounts
         accounts={fixtureAccounts}
-        cards={fixtureCards}
+        cards={appCards}
         transactions={fixtureTransactions}
         selectedAccountId={selectedAccountId}
         onSelectAccount={setSelectedAccountId}
@@ -55,7 +57,7 @@ export default function App() {
   if (view === "cards") {
     return (
       <Cards
-        cards={fixtureCards}
+        cards={appCards}
         transactions={fixtureTransactions}
         selectedCardId={selectedCardId}
         onSelectCard={setSelectedCardId}
@@ -83,7 +85,7 @@ export default function App() {
     return (
       <Transactions
         accounts={fixtureAccounts}
-        cards={fixtureCards}
+        cards={appCards}
         transactions={fixtureTransactions}
         selectedTransactionId={selectedTransactionId}
         onSelectTransaction={setSelectedTransactionId}
@@ -107,7 +109,7 @@ export default function App() {
     return (
       <Spending
         accounts={fixtureAccounts}
-        cards={fixtureCards}
+        cards={appCards}
         transactions={fixtureTransactions}
         onShowDashboard={() => {
           setView("dashboard");
@@ -132,7 +134,7 @@ export default function App() {
   return (
     <Dashboard
       accounts={fixtureAccounts}
-      cards={fixtureCards}
+      cards={appCards}
       transactions={fixtureTransactions}
       onShowAccounts={() => {
         setView("accounts");

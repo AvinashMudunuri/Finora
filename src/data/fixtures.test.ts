@@ -4,9 +4,11 @@ import { cashTotal, creditOwed } from "../domain/finance.ts";
 import { ACCOUNT_TYPES, TRANSACTION_EVENT_TYPES } from "../domain/types.ts";
 import { assertValidFinanceData } from "../domain/validate.ts";
 import {
+  cardsWithCurrentPaymentStatus,
   fixtureAccounts,
   fixtureCards,
   fixtureTransactions,
+  loadAppCards,
 } from "./fixtures.ts";
 
 describe("fixture accounts", () => {
@@ -172,5 +174,23 @@ describe("fixture determinism", () => {
     expect(reloaded.fixtureAccounts).toBe(fixtureAccounts);
     expect(reloaded.fixtureCards).toBe(fixtureCards);
     expect(reloaded.fixtureTransactions).toBe(fixtureTransactions);
+  });
+});
+
+describe("e2e-all-current dataset mapping", () => {
+  it("maps every card to current without mutating the default fixtures", () => {
+    const mapped = cardsWithCurrentPaymentStatus(fixtureCards);
+
+    expect(mapped.map((card) => card.paymentStatus)).toEqual(["current", "current"]);
+    expect(mapped[0]?.name).toBe(fixtureCards[0]?.name);
+    expect(mapped[0]?.minimumPayment).toBe(fixtureCards[0]?.minimumPayment);
+    expect(fixtureCards[0]?.paymentStatus).toBe("due");
+    expect(fixtureCards[1]?.paymentStatus).toBe("current");
+  });
+
+  it("keeps the default fixture cards outside the e2e-all-current Vite mode", () => {
+    expect(import.meta.env.MODE).not.toBe("e2e-all-current");
+    expect(loadAppCards()).toEqual(fixtureCards);
+    expect(loadAppCards()[0]?.paymentStatus).toBe("due");
   });
 });

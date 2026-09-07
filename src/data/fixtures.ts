@@ -61,6 +61,20 @@ export const fixtureCards: Card[] = [
   },
 ];
 
+export function cardsWithCurrentPaymentStatus(cards: Card[]): Card[] {
+  return cards.map((card) => ({
+    ...card,
+    paymentStatus: "current",
+  }));
+}
+
+export function loadAppCards(): Card[] {
+  if (import.meta.env.MODE === "e2e-all-current") {
+    return cardsWithCurrentPaymentStatus(fixtureCards);
+  }
+  return fixtureCards;
+}
+
 export const fixtureTransactions: Transaction[] = [
   {
     id: "txn-001",
