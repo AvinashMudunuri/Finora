@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import {
   calculateAssetBreakdown,
   calculateCardUtilization,
+  calculateCardPaymentAttention,
   calculateHighCardUtilization,
   calculateMonthlySavings,
   calculateNetWorth,
@@ -17,6 +18,7 @@ import {
   formatMonth,
   formatUtilization,
   getRecentTransactions,
+  paymentStatusLabel,
   signedAmount,
   transactionContext,
   transactionDirection,
@@ -96,6 +98,10 @@ export function Dashboard({
   const drivers = spendingChange
     ? listSpendingChangeDrivers(transactions, spendingChange)
     : [];
+  const paymentAttention = calculateCardPaymentAttention(cards);
+  const paymentCard = paymentAttention
+    ? cardsById.get(paymentAttention.cardId)
+    : undefined;
   const highUtilization = calculateHighCardUtilization(cards);
   const attentionCard = highUtilization
     ? cardsById.get(highUtilization.cardId)
@@ -382,6 +388,60 @@ export function Dashboard({
           </section>
         ) : null}
 
+
+        {paymentAttention && paymentCard ? (
+          <section className="panel" aria-labelledby="card-payment-heading">
+            <div className="panel-header">
+              <h2 id="card-payment-heading">Card payment</h2>
+              <p className="panel-copy">
+                A card whose stored payment status is due or overdue.
+              </p>
+            </div>
+
+            <article className="insight-card" data-direction="increased">
+              <h3>
+                Card payment{" "}
+                {paymentStatusLabel(paymentAttention.paymentStatus).toLowerCase()}
+              </h3>
+              <p className="insight-body">
+                {paymentCard.name} ·{" "}
+                {paymentStatusLabel(paymentAttention.paymentStatus)}
+              </p>
+              <p className="stat-note">
+                Due:{" "}
+                <time dateTime={paymentAttention.paymentDueDate}>
+                  {formatDate(paymentAttention.paymentDueDate)}
+                </time>
+              </p>
+              <p className="stat-note">
+                Minimum payment:{" "}
+                {formatCurrency(
+                  paymentAttention.minimumPayment,
+                  paymentCard.currency,
+                )}
+              </p>
+              <p className="stat-note">
+                Outstanding:{" "}
+                {formatCurrency(
+                  paymentAttention.outstandingBalance,
+                  paymentCard.currency,
+                )}
+              </p>
+              {onOpenCard ? (
+                <button
+                  type="button"
+                  className="inline-action"
+                  onClick={() => {
+                    onOpenCard(paymentAttention.cardId);
+                  }}
+                >
+                  Inspect card
+                </button>
+              ) : null}
+            </article>
+          </section>
+        ) : null}
+
         {highUtilization && attentionCard ? (
           <section className="panel" aria-labelledby="card-utilization-heading">
             <div className="panel-header">
@@ -480,6 +540,10 @@ export function Dashboard({
                         cardUtilization.get(card.id)?.utilization ?? null,
                       )}{" "}
                       utilized · {card.currency}
+                    </p>
+                    <p className="account-note">
+                      {paymentStatusLabel(card.paymentStatus)} · min{" "}
+                      {formatCurrency(card.minimumPayment, card.currency)}
                     </p>
                   </>
                 );

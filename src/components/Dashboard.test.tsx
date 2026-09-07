@@ -8,6 +8,7 @@ import {
 } from "../data/fixtures.ts";
 import {
   calculateAssetBreakdown,
+  calculateCardPaymentAttention,
   calculateHighCardUtilization,
   calculateLiquidAssets,
   calculateMonthlySavings,
@@ -20,8 +21,10 @@ import {
 import type { Account, Card, Transaction } from "../domain/types.ts";
 import {
   formatCurrency,
+  formatDate,
   formatMonth,
   formatUtilization,
+  paymentStatusLabel,
   signedAmount,
 } from "../domain/finance.ts";
 import { Dashboard } from "./Dashboard.tsx";
@@ -528,7 +531,10 @@ describe("Finora dashboard", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: "Inspect card" }));
+    const region = screen.getByRole("region", { name: "Card utilization" });
+    await user.click(
+      within(region).getByRole("button", { name: "Inspect card" }),
+    );
     expect(onOpenCard).toHaveBeenCalledWith("card-visa");
   });
 
@@ -754,4 +760,128 @@ describe("Finora dashboard", () => {
 
     expect(onOpenTransaction).toHaveBeenCalledWith("txn-004");
   });
+  it("renders the payment-attention insight from the calculated due result", () => {
+    renderDashboard();
+
+    const insight = calculateCardPaymentAttention(fixtureCards);
+    const attentionCard = fixtureCards.find((card) => card.id === insight?.cardId);
+
+    expect(insight?.paymentStatus).toBe("due");
+    const region = screen.getByRole("region", { name: "Card payment" });
+    expect(
+      within(region).getByRole("heading", { name: "Card payment due" }),
+    ).toBeInTheDocument();
+    expect(region.textContent).toContain(
+      `${attentionCard!.name} · ${paymentStatusLabel(insight!.paymentStatus)}`,
+    );
+    expect(region.textContent).toContain(
+      `Due: ${formatDate(insight!.paymentDueDate)}`,
+    );
+    expect(region.textContent).toContain(
+      `Minimum payment: ${formatCurrency(insight!.minimumPayment, attentionCard!.currency)}`,
+    );
+    expect(region.textContent).toContain(
+      `Outstanding: ${formatCurrency(insight!.outstandingBalance, attentionCard!.currency)}`,
+    );
+    expect(within(region).queryByText("Amex Everyday")).not.toBeInTheDocument();
+  });
+
+  it("renders an overdue payment-attention insight from the calculated result", () => {
+    const cards: Card[] = [
+      {
+        ...fixtureCards[1]!,
+        paymentStatus: "current",
+      },
+      {
+        ...fixtureCards[0]!,
+        paymentStatus: "overdue",
+        paymentDueDate: "2026-08-15",
+        minimumPayment: 40,
+      },
+    ];
+    const insight = calculateCardPaymentAttention(cards);
+    const attentionCard = cards.find((card) => card.id === insight?.cardId);
+
+    render(
+      <Dashboard
+        accounts={fixtureAccounts}
+        cards={cards}
+        transactions={fixtureTransactions}
+      />,
+    );
+
+    const region = screen.getByRole("region", { name: "Card payment" });
+    expect(insight?.cardId).toBe("card-visa");
+    expect(insight?.paymentStatus).toBe("overdue");
+    expect(
+      within(region).getByRole("heading", { name: "Card payment overdue" }),
+    ).toBeInTheDocument();
+    expect(region.textContent).toContain(
+      `${attentionCard!.name} · ${paymentStatusLabel(insight!.paymentStatus)}`,
+    );
+    expect(region.textContent).toContain(
+      `Due: ${formatDate(insight!.paymentDueDate)}`,
+    );
+    expect(screen.queryByText("Card payment due")).not.toBeInTheDocument();
+  });
+
+  it("does not render a payment-attention insight when every card is current", () => {
+    const cards: Card[] = fixtureCards.map((card) => ({
+      ...card,
+      paymentStatus: "current" as const,
+    }));
+
+    expect(calculateCardPaymentAttention(cards)).toBeNull();
+    render(
+      <Dashboard
+        accounts={fixtureAccounts}
+        cards={cards}
+        transactions={fixtureTransactions}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("region", { name: "Card payment" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Card payment due")).not.toBeInTheDocument();
+    expect(screen.queryByText("Card payment overdue")).not.toBeInTheDocument();
+  });
+
+  it("opens the selected card from the payment-attention insight", async () => {
+    const user = userEvent.setup();
+    const onOpenCard = vi.fn();
+
+    render(
+      <Dashboard
+        accounts={fixtureAccounts}
+        cards={fixtureCards}
+        transactions={fixtureTransactions}
+        onOpenCard={onOpenCard}
+      />,
+    );
+
+    const region = screen.getByRole("region", { name: "Card payment" });
+    await user.click(
+      within(region).getByRole("button", { name: "Inspect card" }),
+    );
+
+    expect(onOpenCard).toHaveBeenCalledWith("card-visa");
+  });
+
+  it("shows stored payment status and minimum payment on dashboard card tiles", () => {
+    renderDashboard();
+
+    const accounts = screen.getByRole("region", { name: "Accounts" });
+    for (const card of fixtureCards) {
+      const tile = within(accounts)
+        .getByRole("heading", { name: card.name })
+        .closest("li");
+      expect(tile).not.toBeNull();
+      expect(tile!.textContent).toContain(paymentStatusLabel(card.paymentStatus));
+      expect(tile!.textContent).toContain(
+        `min ${formatCurrency(card.minimumPayment, card.currency)}`,
+      );
+    }
+  });
+
 });

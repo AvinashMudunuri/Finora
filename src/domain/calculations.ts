@@ -152,6 +152,57 @@ export function calculateHighCardUtilization(
   };
 }
 
+export type CardPaymentAttentionStatus = "due" | "overdue";
+
+export type CardPaymentAttentionResult = {
+  cardId: string;
+  paymentStatus: CardPaymentAttentionStatus;
+  paymentDueDate: string;
+  minimumPayment: number;
+  outstandingBalance: number;
+};
+
+export function calculateCardPaymentAttention(
+  cards: Card[],
+): CardPaymentAttentionResult | null {
+  const order = new Map(cards.map((currentCard, index) => [currentCard.id, index]));
+  const qualifying = cards.filter(isAttentionPaymentStatus);
+
+  if (qualifying.length === 0) {
+    return null;
+  }
+
+  qualifying.sort((left, right) => {
+    const statusDelta =
+      paymentAttentionRank(left.paymentStatus) -
+      paymentAttentionRank(right.paymentStatus);
+    if (statusDelta !== 0) {
+      return statusDelta;
+    }
+
+    return (order.get(left.id) ?? 0) - (order.get(right.id) ?? 0);
+  });
+
+  const selected = qualifying[0]!;
+  return {
+    cardId: selected.id,
+    paymentStatus: selected.paymentStatus,
+    paymentDueDate: selected.paymentDueDate,
+    minimumPayment: selected.minimumPayment,
+    outstandingBalance: selected.outstandingBalance,
+  };
+}
+
+function isAttentionPaymentStatus(
+  card: Card,
+): card is Card & { paymentStatus: CardPaymentAttentionStatus } {
+  return card.paymentStatus === "overdue" || card.paymentStatus === "due";
+}
+
+function paymentAttentionRank(status: CardPaymentAttentionStatus): number {
+  return status === "overdue" ? 0 : 1;
+}
+
 export function calculateMonthlySpending(
   transactions: Transaction[],
   year: number,
