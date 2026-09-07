@@ -11,6 +11,7 @@ import {
   calculateMonthlySavings,
   calculateMonthlySpending,
   calculateSpendingChange,
+  listSpendingChangeDrivers,
 } from "../domain/calculations.ts";
 import { formatCurrency, formatMonth } from "../domain/finance.ts";
 import type { Account, Transaction } from "../domain/types.ts";
@@ -136,6 +137,17 @@ describe("Finora spending view", () => {
       ),
     ).toBeInTheDocument();
     expect(within(region).queryByText("Spending increased")).not.toBeInTheDocument();
+
+    const drivers = listSpendingChangeDrivers(fixtureTransactions, insight!);
+    const driverList = within(region).getByRole("list", {
+      name: "Spending change drivers",
+    });
+    expect(
+      within(region).getByText(
+        `Largest spending in ${formatMonth(drivers[0]!.period.year, drivers[0]!.period.month)}`,
+      ),
+    ).toBeInTheDocument();
+    expect(within(driverList).getByText("Rent — Oak Street Apt")).toBeInTheDocument();
   });
 
   it("keeps the comparison on the insight periods when another month is selected", async () => {
@@ -234,6 +246,9 @@ describe("Finora spending view", () => {
         `You spent ${formatCurrency(40, "USD")} this month, compared with ${formatCurrency(40, "USD")} last month.`,
       ),
     ).toBeInTheDocument();
+    expect(
+      within(region).queryByRole("list", { name: "Spending change drivers" }),
+    ).not.toBeInTheDocument();
   });
 
   it("omits the comparison when the calculation has no activity month", () => {

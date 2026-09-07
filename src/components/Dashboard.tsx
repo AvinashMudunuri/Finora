@@ -7,6 +7,7 @@ import {
   calculateNetWorth,
   calculateSpendingChange,
   latestActivityMonth,
+  listSpendingChangeDrivers,
   type SpendingChangeDirection,
 } from "../domain/calculations.ts";
 import {
@@ -92,6 +93,9 @@ export function Dashboard({
     );
   }, [cards]);
   const spendingChange = calculateSpendingChange(transactions);
+  const drivers = spendingChange
+    ? listSpendingChangeDrivers(transactions, spendingChange)
+    : [];
   const highUtilization = calculateHighCardUtilization(cards);
   const attentionCard = highUtilization
     ? cardsById.get(highUtilization.cardId)
@@ -303,6 +307,68 @@ export function Dashboard({
                   spendingChange.previousPeriod.month,
                 )}
               </p>
+              {drivers.length > 0 ? (
+                <>
+                  <p className="stat-note">
+                    Largest spending in{" "}
+                    {formatMonth(
+                      drivers[0]!.period.year,
+                      drivers[0]!.period.month,
+                    )}
+                  </p>
+                  <ol
+                    className="transaction-list"
+                    aria-label="Spending change drivers"
+                  >
+                    {drivers.map((driver) => {
+                      const row = (
+                        <>
+                          <div className="transaction-main">
+                            <p className="transaction-description">
+                              {driver.description}
+                            </p>
+                            <p className="transaction-meta">
+                              <span>
+                                {formatMonth(
+                                  driver.period.year,
+                                  driver.period.month,
+                                )}
+                              </span>
+                            </p>
+                          </div>
+                          <div className="transaction-aside">
+                            <p className="transaction-amount is-outflow">
+                              {formatCurrency(
+                                driver.amount,
+                                spendingChange.currency,
+                              )}
+                            </p>
+                          </div>
+                        </>
+                      );
+
+                      return (
+                        <li key={driver.transactionId}>
+                          {onOpenTransaction ? (
+                            <button
+                              type="button"
+                              className="transaction-row transaction-row-button"
+                              aria-label={`View ${driver.description}`}
+                              onClick={() => {
+                                onOpenTransaction(driver.transactionId);
+                              }}
+                            >
+                              {row}
+                            </button>
+                          ) : (
+                            <div className="transaction-row">{row}</div>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </>
+              ) : null}
               {onShowSpending ? (
                 <button
                   type="button"
