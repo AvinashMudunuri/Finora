@@ -8,6 +8,7 @@ import {
 } from "../data/fixtures.ts";
 import {
   calculateAssetBreakdown,
+  calculateHighCardUtilization,
   calculateLiquidAssets,
   calculateMonthlySavings,
   calculateMonthlySpending,
@@ -15,7 +16,7 @@ import {
   calculateSpendingChange,
   latestActivityMonth,
 } from "../domain/calculations.ts";
-import type { Account, Transaction } from "../domain/types.ts";
+import type { Account, Card, Transaction } from "../domain/types.ts";
 import {
   formatCurrency,
   formatMonth,
@@ -456,6 +457,78 @@ describe("Finora dashboard", () => {
 
     expect(onShowAccounts).toHaveBeenCalledTimes(1);
     expect(onShowCards).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not render a card-utilization insight when no card qualifies", () => {
+    renderDashboard();
+
+    expect(calculateHighCardUtilization(fixtureCards)).toBeNull();
+    expect(
+      screen.queryByRole("region", { name: "Card utilization" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("needs attention")).not.toBeInTheDocument();
+  });
+
+  it("renders the high-utilization insight from the calculated result", () => {
+    const cards: Card[] = [
+      {
+        ...fixtureCards[1]!,
+        outstandingBalance: 400,
+        availableCredit: fixtureCards[1]!.creditLimit - 400,
+      },
+      {
+        ...fixtureCards[0]!,
+        outstandingBalance: 3700,
+        availableCredit: fixtureCards[0]!.creditLimit - 3700,
+      },
+    ];
+    const insight = calculateHighCardUtilization(cards);
+    const attentionCard = cards.find((card) => card.id === insight?.cardId);
+
+    render(
+      <Dashboard
+        accounts={fixtureAccounts}
+        cards={cards}
+        transactions={fixtureTransactions}
+      />,
+    );
+
+    const region = screen.getByRole("region", { name: "Card utilization" });
+    expect(insight?.cardId).toBe("card-visa");
+    expect(attentionCard?.name).toBe("Visa Rewards");
+    expect(
+      within(region).getByRole("heading", { name: "Visa Rewards needs attention" }),
+    ).toBeInTheDocument();
+    expect(
+      within(region).getByText(
+        `Utilization is ${formatUtilization(insight!.utilization)}, at or above ${formatUtilization(insight!.threshold)}.`,
+      ),
+    ).toBeInTheDocument();
+    expect(within(region).queryByText("Amex Everyday needs attention")).not.toBeInTheDocument();
+  });
+
+  it("opens the qualifying card from the utilization insight", async () => {
+    const user = userEvent.setup();
+    const onOpenCard = vi.fn();
+    const cards: Card[] = [
+      {
+        ...fixtureCards[0]!,
+        outstandingBalance: 3700,
+        availableCredit: fixtureCards[0]!.creditLimit - 3700,
+      },
+    ];
+
+    render(
+      <Dashboard
+        accounts={fixtureAccounts}
+        cards={cards}
+        transactions={fixtureTransactions}
+        onOpenCard={onOpenCard}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Inspect card" }));
+    expect(onOpenCard).toHaveBeenCalledWith("card-visa");
   });
 
   it("renders the spending change insight from the calculated result", () => {

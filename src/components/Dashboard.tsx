@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import {
   calculateAssetBreakdown,
   calculateCardUtilization,
+  calculateHighCardUtilization,
   calculateMonthlySavings,
   calculateNetWorth,
   calculateSpendingChange,
@@ -91,6 +92,10 @@ export function Dashboard({
     );
   }, [cards]);
   const spendingChange = calculateSpendingChange(transactions);
+  const highUtilization = calculateHighCardUtilization(cards);
+  const attentionCard = highUtilization
+    ? cardsById.get(highUtilization.cardId)
+    : undefined;
 
   return (
     <div className="app-shell">
@@ -305,6 +310,38 @@ export function Dashboard({
                   onClick={onShowSpending}
                 >
                   Inspect spending
+                </button>
+              ) : null}
+            </article>
+          </section>
+        ) : null}
+
+        {highUtilization && attentionCard ? (
+          <section className="panel" aria-labelledby="card-utilization-heading">
+            <div className="panel-header">
+              <h2 id="card-utilization-heading">Card utilization</h2>
+              <p className="panel-copy">
+                A card at or above the attention threshold, using the existing
+                utilization calculation.
+              </p>
+            </div>
+
+            <article className="insight-card" data-direction="increased">
+              <h3>{attentionCard.name} needs attention</h3>
+              <p className="insight-body">
+                Utilization is {formatUtilization(highUtilization.utilization)},
+                at or above {formatUtilization(highUtilization.threshold)}.
+              </p>
+              <p className="stat-note">Consider paying down the balance.</p>
+              {onOpenCard ? (
+                <button
+                  type="button"
+                  className="inline-action"
+                  onClick={() => {
+                    onOpenCard(highUtilization.cardId);
+                  }}
+                >
+                  Inspect card
                 </button>
               ) : null}
             </article>
