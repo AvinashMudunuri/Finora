@@ -68,9 +68,18 @@ export function cardsWithCurrentPaymentStatus(cards: Card[]): Card[] {
   }));
 }
 
+export function cardsWithVisaOverduePaymentStatus(cards: Card[]): Card[] {
+  return cards.map((card) =>
+    card.id === "card-visa" ? { ...card, paymentStatus: "overdue" } : card,
+  );
+}
+
 export function loadAppCards(): Card[] {
   if (import.meta.env.MODE === "e2e-all-current") {
     return cardsWithCurrentPaymentStatus(fixtureCards);
+  }
+  if (import.meta.env.MODE === "e2e-overdue") {
+    return cardsWithVisaOverduePaymentStatus(fixtureCards);
   }
   return fixtureCards;
 }
