@@ -6,11 +6,12 @@ import { Spending } from "../components/Spending.tsx";
 import { Transactions } from "../components/Transactions.tsx";
 import {
   fixtureAccounts,
-  fixtureTransactions,
   loadAppCards,
+  loadAppTransactions,
 } from "../data/fixtures.ts";
 
 const appCards = loadAppCards();
+const appTransactions = loadAppTransactions();
 
 type AppView = "dashboard" | "accounts" | "cards" | "transactions" | "spending";
 
@@ -23,7 +24,7 @@ export default function App() {
     appCards[0]?.id ?? "",
   );
   const [selectedTransactionId, setSelectedTransactionId] = useState(
-    fixtureTransactions[0]?.id ?? "",
+    appTransactions[0]?.id ?? "",
   );
 
   if (view === "accounts") {
@@ -31,7 +32,7 @@ export default function App() {
       <Accounts
         accounts={fixtureAccounts}
         cards={appCards}
-        transactions={fixtureTransactions}
+        transactions={appTransactions}
         selectedAccountId={selectedAccountId}
         onSelectAccount={setSelectedAccountId}
         onShowDashboard={() => {
@@ -58,7 +59,7 @@ export default function App() {
     return (
       <Cards
         cards={appCards}
-        transactions={fixtureTransactions}
+        transactions={appTransactions}
         selectedCardId={selectedCardId}
         onSelectCard={setSelectedCardId}
         onShowDashboard={() => {
@@ -86,7 +87,7 @@ export default function App() {
       <Transactions
         accounts={fixtureAccounts}
         cards={appCards}
-        transactions={fixtureTransactions}
+        transactions={appTransactions}
         selectedTransactionId={selectedTransactionId}
         onSelectTransaction={setSelectedTransactionId}
         onShowDashboard={() => {
@@ -110,7 +111,7 @@ export default function App() {
       <Spending
         accounts={fixtureAccounts}
         cards={appCards}
-        transactions={fixtureTransactions}
+        transactions={appTransactions}
         onShowDashboard={() => {
           setView("dashboard");
         }}
@@ -135,7 +136,7 @@ export default function App() {
     <Dashboard
       accounts={fixtureAccounts}
       cards={appCards}
-      transactions={fixtureTransactions}
+      transactions={appTransactions}
       onShowAccounts={() => {
         setView("accounts");
       }}

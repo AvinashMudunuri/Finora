@@ -220,4 +220,34 @@ describe("Finora app navigation", () => {
       ),
     ).toBeInTheDocument();
   });
+
+  it("opens a spending-change driver from the spending view into transaction detail", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Inspect spending" }));
+
+    const region = screen.getByRole("region", { name: "Spending change" });
+    await user.click(
+      within(region).getByRole("button", { name: "View Rent — Oak Street Apt" }),
+    );
+
+    const detail = screen.getByRole("region", { name: "Rent — Oak Street Apt" });
+    expect(within(detail).getByText("Expense")).toBeInTheDocument();
+    expect(within(detail).getByText("Everyday Checking")).toBeInTheDocument();
+  });
+
+  it("opens net-worth evidence from the dashboard into transaction detail", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    const region = screen.getByRole("region", { name: "Net worth change" });
+    await user.click(
+      within(region).getByRole("button", { name: "Inspect Payroll — Acme Corp" }),
+    );
+
+    const detail = screen.getByRole("region", { name: "Payroll — Acme Corp" });
+    expect(within(detail).getByText("Income")).toBeInTheDocument();
+    expect(within(detail).getByText("Everyday Checking")).toBeInTheDocument();
+  });
 });

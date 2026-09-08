@@ -84,6 +84,30 @@ export function loadAppCards(): Card[] {
   return fixtureCards;
 }
 
+export function transactionsWithoutSeptemberIncome(
+  transactions: Transaction[],
+): Transaction[] {
+  return transactions.filter((transaction) => transaction.id !== "txn-001");
+}
+
+export function transactionsWithNeutralSeptemberNetWorth(
+  transactions: Transaction[],
+): Transaction[] {
+  return transactions.filter(
+    (transaction) => transaction.id !== "txn-001" && transaction.id !== "txn-002",
+  );
+}
+
+export function loadAppTransactions(): Transaction[] {
+  if (import.meta.env.MODE === "e2e-nw-decreased") {
+    return transactionsWithoutSeptemberIncome(fixtureTransactions);
+  }
+  if (import.meta.env.MODE === "e2e-nw-unchanged") {
+    return transactionsWithNeutralSeptemberNetWorth(fixtureTransactions);
+  }
+  return fixtureTransactions;
+}
+
 export const fixtureTransactions: Transaction[] = [
   {
     id: "txn-001",

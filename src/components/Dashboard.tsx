@@ -6,8 +6,10 @@ import {
   calculateHighCardUtilization,
   calculateMonthlySavings,
   calculateNetWorth,
+  calculateNetWorthChange,
   calculateSpendingChange,
   latestActivityMonth,
+  listNetWorthChangeEvidence,
   listSpendingChangeDrivers,
   type SpendingChangeDirection,
 } from "../domain/calculations.ts";
@@ -39,6 +41,30 @@ export type DashboardProps = {
   onOpenAccount?: (accountId: string) => void;
   onOpenTransaction?: (transactionId: string) => void;
 };
+
+function netWorthChangeHeadline(direction: SpendingChangeDirection): string {
+  if (direction === "increased") {
+    return "Net worth increased";
+  }
+
+  if (direction === "decreased") {
+    return "Net worth decreased";
+  }
+
+  return "Net worth unchanged";
+}
+
+function netWorthChangeDirectionLabel(direction: SpendingChangeDirection): string {
+  if (direction === "increased") {
+    return "Increased";
+  }
+
+  if (direction === "decreased") {
+    return "Decreased";
+  }
+
+  return "Unchanged";
+}
 
 function spendingChangeHeadline(direction: SpendingChangeDirection): string {
   if (direction === "increased") {
@@ -94,6 +120,10 @@ export function Dashboard({
       calculateCardUtilization(cards).map((result) => [result.cardId, result]),
     );
   }, [cards]);
+  const netWorthChange = calculateNetWorthChange(accounts, cards, transactions);
+  const netWorthEvidence = netWorthChange
+    ? listNetWorthChangeEvidence(transactions, netWorthChange)
+    : [];
   const spendingChange = calculateSpendingChange(transactions);
   const drivers = spendingChange
     ? listSpendingChangeDrivers(transactions, spendingChange)
@@ -157,6 +187,41 @@ export function Dashboard({
                   {formatCurrency(worth.liabilities, worth.currency)} liabilities
                 </p>
                 <p className="stat-note">Assets − liabilities</p>
+                {netWorthChange ? (
+                  <dl className="position-breakdown">
+                    <div>
+                      <dt>Previous</dt>
+                      <dd>
+                        {formatCurrency(
+                          netWorthChange.previousNetWorth,
+                          netWorthChange.currency,
+                        )}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Change</dt>
+                      <dd>
+                        {formatCurrency(
+                          netWorthChange.direction === "decreased"
+                            ? -netWorthChange.absoluteChange
+                            : netWorthChange.absoluteChange,
+                          netWorthChange.currency,
+                          netWorthChange.direction !== "unchanged",
+                        )}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Direction</dt>
+                      <dd>
+                        {netWorthChangeDirectionLabel(netWorthChange.direction)}
+                      </dd>
+                    </div>
+                  </dl>
+                ) : (
+                  <p className="stat-note">
+                    No recorded activity month to compare.
+                  </p>
+                )}
               </article>
               <article className="stat-card">
                 <h3>Assets</h3>
@@ -272,6 +337,132 @@ export function Dashboard({
             </article>
           </div>
         </section>
+
+        {netWorthChange ? (
+          <section className="panel" aria-labelledby="net-worth-change-heading">
+            <div className="panel-header">
+              <h2 id="net-worth-change-heading">Net worth change</h2>
+              <p className="panel-copy">
+                How the current snapshot compares with the previous calendar
+                month after reversing recorded activity in the latest month.
+                This does not use market prices or forecasts.
+              </p>
+            </div>
+
+            <article
+              className="insight-card"
+              data-direction={netWorthChange.direction}
+            >
+              <h3>{netWorthChangeHeadline(netWorthChange.direction)}</h3>
+              <p className="insight-body">
+                Net worth is{" "}
+                {formatCurrency(
+                  netWorthChange.currentNetWorth,
+                  netWorthChange.currency,
+                )}{" "}
+                this month, compared with{" "}
+                {formatCurrency(
+                  netWorthChange.previousNetWorth,
+                  netWorthChange.currency,
+                )}{" "}
+                last month.
+              </p>
+              <p className="stat-note">
+                {formatMonth(
+                  netWorthChange.currentPeriod.year,
+                  netWorthChange.currentPeriod.month,
+                )}{" "}
+                compared with{" "}
+                {formatMonth(
+                  netWorthChange.previousPeriod.year,
+                  netWorthChange.previousPeriod.month,
+                )}
+              </p>
+              <p className="stat-note">
+                Change:{" "}
+                {formatCurrency(
+                  netWorthChange.direction === "decreased"
+                    ? -netWorthChange.absoluteChange
+                    : netWorthChange.absoluteChange,
+                  netWorthChange.currency,
+                  netWorthChange.direction !== "unchanged",
+                )}
+              </p>
+              {netWorthEvidence.length > 0 ? (
+                <>
+                  <p className="stat-note">
+                    Largest recorded movements this month. These do not claim a
+                    complete cause.
+                  </p>
+                  <ol
+                    className="transaction-list"
+                    aria-label="Net worth change evidence"
+                  >
+                    {netWorthEvidence.map((item) => {
+                      const row = (
+                        <>
+                          <div className="transaction-main">
+                            <p className="transaction-description">
+                              {item.description}
+                            </p>
+                            <p className="transaction-meta">
+                              <span>
+                                {formatMonth(item.period.year, item.period.month)}
+                              </span>
+                            </p>
+                          </div>
+                          <div className="transaction-aside">
+                            <p
+                              className={
+                                item.impact < 0
+                                  ? "transaction-amount is-outflow"
+                                  : "transaction-amount is-inflow"
+                              }
+                            >
+                              {formatCurrency(
+                                item.impact,
+                                netWorthChange.currency,
+                                true,
+                              )}
+                            </p>
+                          </div>
+                        </>
+                      );
+
+                      return (
+                        <li key={item.transactionId}>
+                          {onOpenTransaction ? (
+                            <button
+                              type="button"
+                              className="transaction-row transaction-row-button"
+                              aria-label={`Inspect ${item.description}`}
+                              onClick={() => {
+                                onOpenTransaction(item.transactionId);
+                              }}
+                            >
+                              {row}
+                            </button>
+                          ) : (
+                            <div className="transaction-row">{row}</div>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </>
+              ) : netWorthChange.direction === "unchanged" ? (
+                <p className="stat-note">
+                  Stored records do not show a net-worth movement to explain.
+                </p>
+              ) : (
+                <p className="stat-note">
+                  Stored records do not establish a trustworthy cause for this
+                  change.
+                </p>
+              )}
+            </article>
+          </section>
+        ) : null}
 
         {spendingChange ? (
           <section className="panel" aria-labelledby="spending-change-heading">

@@ -14,8 +14,10 @@ import {
   calculateMonthlySavings,
   calculateMonthlySpending,
   calculateNetWorth,
+  calculateNetWorthChange,
   calculateSpendingChange,
   latestActivityMonth,
+  listNetWorthChangeEvidence,
   listSpendingChangeDrivers,
 } from "../domain/calculations.ts";
 import type { Account, Card, Transaction } from "../domain/types.ts";
@@ -129,8 +131,9 @@ describe("Finora dashboard", () => {
     expect(groceries).toBeDefined();
     expect(formatCurrency(signedAmount(paycheck!), "USD", true)).toBe("+$3,200.00");
     expect(formatCurrency(signedAmount(groceries!), "USD", true)).toBe("-$87.42");
-    expect(screen.getByText("+$3,200.00")).toBeInTheDocument();
-    expect(screen.getByText("-$87.42")).toBeInTheDocument();
+    const recent = screen.getByRole("region", { name: "Recent transactions" });
+    expect(within(recent).getByText("+$3,200.00")).toBeInTheDocument();
+    expect(within(recent).getByText("-$87.42")).toBeInTheDocument();
   });
 
   it("filters recent transactions by account or card", async () => {
@@ -183,7 +186,7 @@ describe("Finora dashboard", () => {
 
     expect(screen.getAllByText("Harbor Checking").length).toBeGreaterThan(0);
     expect(screen.getAllByText("$100.00").length).toBeGreaterThan(0);
-    expect(screen.getByText("Harbor Payroll")).toBeInTheDocument();
+    expect(screen.getAllByText("Harbor Payroll").length).toBeGreaterThan(0);
     expect(screen.queryByText("Everyday Checking")).not.toBeInTheDocument();
     expect(screen.queryByText("Payroll — Acme Corp")).not.toBeInTheDocument();
   });
@@ -760,6 +763,190 @@ describe("Finora dashboard", () => {
 
     expect(onOpenTransaction).toHaveBeenCalledWith("txn-004");
   });
+
+  it("shows current, previous, absolute change, and direction on the overview net-worth card", () => {
+    renderDashboard();
+
+    const overview = screen.getByRole("region", { name: "Overview" });
+    const change = calculateNetWorthChange(
+      fixtureAccounts,
+      fixtureCards,
+      fixtureTransactions,
+    );
+    const netWorthCard = within(overview)
+      .getByRole("heading", { name: "Net worth" })
+      .closest("article");
+
+    expect(change).not.toBeNull();
+    expect(netWorthCard).not.toBeNull();
+    expect(
+      within(netWorthCard!).getByText(
+        formatCurrency(change!.currentNetWorth, change!.currency),
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(netWorthCard!).getByText(
+        formatCurrency(change!.previousNetWorth, change!.currency),
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(netWorthCard!).getByText(
+        formatCurrency(change!.absoluteChange, change!.currency, true),
+      ),
+    ).toBeInTheDocument();
+    expect(within(netWorthCard!).getByText("Increased")).toBeInTheDocument();
+    expect(within(netWorthCard!).queryByText("Decreased")).not.toBeInTheDocument();
+  });
+
+  it("renders the net-worth change insight and evidence from the calculated result", () => {
+    renderDashboard();
+
+    const change = calculateNetWorthChange(
+      fixtureAccounts,
+      fixtureCards,
+      fixtureTransactions,
+    );
+    const evidence = listNetWorthChangeEvidence(fixtureTransactions, change!);
+    const region = screen.getByRole("region", { name: "Net worth change" });
+
+    expect(
+      within(region).getByRole("heading", { name: "Net worth increased" }),
+    ).toBeInTheDocument();
+    expect(
+      within(region).getByText(
+        `Net worth is ${formatCurrency(change!.currentNetWorth, change!.currency)} this month, compared with ${formatCurrency(change!.previousNetWorth, change!.currency)} last month.`,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(region).getByText(
+        `${formatMonth(change!.currentPeriod.year, change!.currentPeriod.month)} compared with ${formatMonth(change!.previousPeriod.year, change!.previousPeriod.month)}`,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(region).getByText(
+        `Change: ${formatCurrency(change!.absoluteChange, change!.currency, true)}`,
+      ),
+    ).toBeInTheDocument();
+
+    const evidenceList = within(region).getByRole("list", {
+      name: "Net worth change evidence",
+    });
+    expect(within(evidenceList).getByText("Payroll — Acme Corp")).toBeInTheDocument();
+    expect(within(evidenceList).getByText("Whole Foods Market")).toBeInTheDocument();
+    expect(within(evidenceList).queryByText("Payment — Thank you")).not.toBeInTheDocument();
+    expect(evidence.map((item) => item.transactionId)).toEqual(["txn-001", "txn-002"]);
+    expect(
+      within(region).queryByText(
+        "Stored records do not establish a trustworthy cause for this change.",
+      ),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders a decreased net-worth insight from the calculated result", () => {
+    const transactions = fixtureTransactions.filter(
+      (transaction) => transaction.id !== "txn-001",
+    );
+    const change = calculateNetWorthChange(
+      fixtureAccounts,
+      fixtureCards,
+      transactions,
+    );
+
+    render(
+      <Dashboard
+        accounts={fixtureAccounts}
+        cards={fixtureCards}
+        transactions={transactions}
+      />,
+    );
+
+    const region = screen.getByRole("region", { name: "Net worth change" });
+    expect(change?.direction).toBe("decreased");
+    expect(
+      within(region).getByRole("heading", { name: "Net worth decreased" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Net worth increased")).not.toBeInTheDocument();
+    expect(
+      within(region).getByText("Whole Foods Market"),
+    ).toBeInTheDocument();
+  });
+
+  it("renders an unchanged net-worth insight without causal evidence", () => {
+    const transactions = fixtureTransactions.filter(
+      (transaction) => transaction.id !== "txn-001" && transaction.id !== "txn-002",
+    );
+    const change = calculateNetWorthChange(
+      fixtureAccounts,
+      fixtureCards,
+      transactions,
+    );
+
+    render(
+      <Dashboard
+        accounts={fixtureAccounts}
+        cards={fixtureCards}
+        transactions={transactions}
+      />,
+    );
+
+    const region = screen.getByRole("region", { name: "Net worth change" });
+    expect(change?.direction).toBe("unchanged");
+    expect(
+      within(region).getByRole("heading", { name: "Net worth unchanged" }),
+    ).toBeInTheDocument();
+    expect(
+      within(region).queryByRole("list", { name: "Net worth change evidence" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(region).getByText(
+        "Stored records do not show a net-worth movement to explain.",
+      ),
+    ).toBeInTheDocument();
+    expect(within(region).queryByText("Payroll — Acme Corp")).not.toBeInTheDocument();
+  });
+
+  it("does not render a net-worth change insight when there is no activity month", () => {
+    render(
+      <Dashboard
+        accounts={fixtureAccounts}
+        cards={fixtureCards}
+        transactions={[]}
+      />,
+    );
+
+    const overview = screen.getByRole("region", { name: "Overview" });
+    expect(
+      within(overview).getByText("No recorded activity month to compare."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "Net worth change" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Net worth increased")).not.toBeInTheDocument();
+  });
+
+  it("opens net-worth evidence through the existing transaction callback", async () => {
+    const user = userEvent.setup();
+    const onOpenTransaction = vi.fn();
+
+    render(
+      <Dashboard
+        accounts={fixtureAccounts}
+        cards={fixtureCards}
+        transactions={fixtureTransactions}
+        onOpenTransaction={onOpenTransaction}
+      />,
+    );
+
+    const region = screen.getByRole("region", { name: "Net worth change" });
+    await user.click(
+      within(region).getByRole("button", {
+        name: "Inspect Payroll — Acme Corp",
+      }),
+    );
+
+    expect(onOpenTransaction).toHaveBeenCalledWith("txn-001");
+  });
+
   it("renders the payment-attention insight from the calculated due result", () => {
     renderDashboard();
 

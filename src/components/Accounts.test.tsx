@@ -8,8 +8,13 @@ import {
   fixtureTransactions,
 } from "../data/fixtures.ts";
 import {
+  calculateAccountPeriodActivity,
+  latestActivityMonth,
+} from "../domain/calculations.ts";
+import {
   accountTypeLabel,
   formatCurrency,
+  formatMonth,
 } from "../domain/finance.ts";
 import type { Account } from "../domain/types.ts";
 import { Accounts } from "./Accounts.tsx";
@@ -89,8 +94,9 @@ describe("Finora account detail", () => {
 
     expect(within(detail).getByText("Bank")).toBeInTheDocument();
     expect(
-      within(detail).getByText(formatCurrency(account.balance, account.currency)),
-    ).toBeInTheDocument();
+      within(detail).getAllByText(formatCurrency(account.balance, account.currency))
+        .length,
+    ).toBeGreaterThan(0);
     expect(within(detail).getByText("USD")).toBeInTheDocument();
   });
 
@@ -156,6 +162,39 @@ describe("Finora account detail", () => {
     expect(screen.getByText("No transactions for this account.")).toBeInTheDocument();
   });
 
+  it("shows a selected-period financial-position summary for the account", () => {
+    renderAccounts({ selectedAccountId: "acc-checking" });
+
+    const period = latestActivityMonth(fixtureTransactions);
+    const activity = calculateAccountPeriodActivity(
+      fixtureTransactions,
+      "acc-checking",
+      period!.year,
+      period!.month,
+    );
+    const summary = screen.getByRole("region", { name: "Selected period" });
+    const account = fixtureAccounts[0]!;
+
+    expect(within(summary).getByText(formatMonth(period!.year, period!.month))).toBeInTheDocument();
+    expect(
+      within(summary).getByText(formatCurrency(account.balance, account.currency)),
+    ).toBeInTheDocument();
+    expect(within(summary).getByText("3 transactions")).toBeInTheDocument();
+    expect(
+      within(summary).getByText(
+        formatCurrency(activity.netMovement, activity.currency, true),
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("shows zero period activity when the selected account has no events in the latest month", () => {
+    renderAccounts({ selectedAccountId: "acc-investment" });
+
+    const summary = screen.getByRole("region", { name: "Selected period" });
+    expect(within(summary).getByText("0 transactions")).toBeInTheDocument();
+    expect(within(summary).getByText("$0.00")).toBeInTheDocument();
+  });
+
   it("opens a related transaction through the existing callback", async () => {
     const user = userEvent.setup();
     const onOpenTransaction = vi.fn();
@@ -194,7 +233,7 @@ describe("Finora account detail", () => {
 
     const detail = screen.getByRole("region", { name: "Investment Account" });
     expect(within(detail).getAllByText("Investment").length).toBeGreaterThan(0);
-    expect(within(detail).getByText("$8,420.55")).toBeInTheDocument();
+    expect(within(detail).getAllByText("$8,420.55").length).toBeGreaterThan(0);
 
     const transactions = screen.getByRole("region", {
       name: "Account transactions",
