@@ -1,10 +1,16 @@
 import { useMemo } from "react";
-import { isAssetAccount } from "../domain/calculations.ts";
+import {
+  calculateAccountPeriodActivity,
+  isAssetAccount,
+  latestActivityMonth,
+  type AccountPeriodActivity,
+} from "../domain/calculations.ts";
 import {
   accountTypeLabel,
   eventTypeLabel,
   formatCurrency,
   formatDate,
+  formatMonth,
   getAccountTransactions,
   signedAmount,
   transactionContext,
@@ -50,6 +56,16 @@ export function Accounts({
   const selectedTransactions = selectedAccount
     ? getAccountTransactions(transactions, selectedAccount.id)
     : [];
+  const activityMonth = latestActivityMonth(transactions);
+  const selectedPeriodActivity =
+    selectedAccount && activityMonth
+      ? calculateAccountPeriodActivity(
+          transactions,
+          selectedAccount.id,
+          activityMonth.year,
+          activityMonth.month,
+        )
+      : null;
 
   return (
     <div className="app-shell">
@@ -134,6 +150,8 @@ export function Accounts({
           <AccountDetail
             account={selectedAccount}
             transactions={selectedTransactions}
+            periodActivity={selectedPeriodActivity}
+            activityMonth={activityMonth}
             accountsById={accountsById}
             cardsById={cardsById}
             onOpenTransaction={onOpenTransaction}
@@ -151,17 +169,22 @@ export function Accounts({
 function AccountDetail({
   account,
   transactions,
+  periodActivity,
+  activityMonth,
   accountsById,
   cardsById,
   onOpenTransaction,
 }: {
   account: Account;
   transactions: Transaction[];
+  periodActivity: AccountPeriodActivity | null;
+  activityMonth: { year: number; month: number } | null;
   accountsById: Map<string, Account>;
   cardsById: Map<string, Card>;
   onOpenTransaction?: (transactionId: string) => void;
 }) {
   const headingId = `${account.id}-detail-heading`;
+  const periodHeadingId = `${account.id}-period-heading`;
 
   return (
     <section className="panel" aria-labelledby={headingId}>
@@ -196,6 +219,49 @@ function AccountDetail({
           </dd>
         </div>
       </dl>
+
+      <section className="card-transactions" aria-labelledby={periodHeadingId}>
+        <h3 id={periodHeadingId}>Selected period</h3>
+        {activityMonth && periodActivity ? (
+          <>
+            <p className="panel-copy">
+              {formatMonth(activityMonth.year, activityMonth.month)}
+            </p>
+            <dl className="card-metrics">
+              <div>
+                <dt>
+                  {account.type === "investment" ? "Current value" : "Current balance"}
+                </dt>
+                <dd>{formatCurrency(account.balance, account.currency)}</dd>
+              </div>
+              <div>
+                <dt>Activity this period</dt>
+                <dd>
+                  {periodActivity.count === 1
+                    ? "1 transaction"
+                    : `${periodActivity.count} transactions`}
+                </dd>
+              </div>
+              <div>
+                <dt>Net movement this period</dt>
+                <dd>
+                  {formatCurrency(
+                    periodActivity.netMovement,
+                    periodActivity.currency,
+                    periodActivity.netMovement !== 0,
+                  )}
+                </dd>
+              </div>
+            </dl>
+            <p className="panel-copy">
+              Activity uses the same account relationships and signed amounts as
+              the transaction list.
+            </p>
+          </>
+        ) : (
+          <p className="empty-state">No transactions in this snapshot</p>
+        )}
+      </section>
 
       <section
         className="card-transactions"

@@ -1,3 +1,4 @@
+import { getAccountTransactions, signedAmount } from "./finance.ts";
 import type { Account, Card, CurrencyCode, Transaction } from "./types.ts";
 
 export type NetWorthResult = {
@@ -407,6 +408,142 @@ function compareSpendingChangeDrivers(
   }
 
   return compareNewestFirst(left, right);
+}
+
+export function netWorthImpact(transaction: Transaction): number {
+  if (transaction.eventType === "income" || transaction.eventType === "investment") {
+    return transaction.amount;
+  }
+
+  if (transaction.eventType === "expense" || transaction.eventType === "card_purchase") {
+    return -transaction.amount;
+  }
+
+  return 0;
+}
+
+export type NetWorthChangeResult = {
+  currentPeriod: SpendingChangePeriod;
+  previousPeriod: SpendingChangePeriod;
+  currentNetWorth: number;
+  previousNetWorth: number;
+  absoluteChange: number;
+  direction: SpendingChangeDirection;
+  currency: CurrencyCode;
+};
+
+export function calculateNetWorthChange(
+  accounts: Account[],
+  cards: Card[],
+  transactions: Transaction[],
+): NetWorthChangeResult | null {
+  const currentPeriod = latestActivityMonth(transactions);
+
+  if (!currentPeriod) {
+    return null;
+  }
+
+  const current = calculateNetWorth(accounts, cards);
+  const recordedImpact = transactions.reduce((total, transaction) => {
+    if (!isInMonth(transaction.date, currentPeriod.year, currentPeriod.month)) {
+      return total;
+    }
+
+    return total + netWorthImpact(transaction);
+  }, 0);
+  const previousNetWorth = current.netWorth - recordedImpact;
+  const absoluteChange = Math.abs(current.netWorth - previousNetWorth);
+
+  return {
+    currentPeriod,
+    previousPeriod: previousCalendarMonth(currentPeriod),
+    currentNetWorth: current.netWorth,
+    previousNetWorth,
+    absoluteChange,
+    direction: spendingChangeDirection(current.netWorth, previousNetWorth),
+    currency: current.currency,
+  };
+}
+
+export const NET_WORTH_CHANGE_EVIDENCE_LIMIT = 3;
+
+export type NetWorthChangeEvidence = {
+  transactionId: string;
+  description: string;
+  impact: number;
+  period: SpendingChangePeriod;
+};
+
+export function listNetWorthChangeEvidence(
+  transactions: Transaction[],
+  change: NetWorthChangeResult,
+): NetWorthChangeEvidence[] {
+  if (change.direction === "unchanged") {
+    return [];
+  }
+
+  return transactions
+    .filter(
+      (transaction) =>
+        isInMonth(
+          transaction.date,
+          change.currentPeriod.year,
+          change.currentPeriod.month,
+        ) && netWorthImpact(transaction) !== 0,
+    )
+    .slice()
+    .sort(compareNetWorthChangeEvidence)
+    .slice(0, NET_WORTH_CHANGE_EVIDENCE_LIMIT)
+    .map((transaction) => ({
+      transactionId: transaction.id,
+      description: transaction.description,
+      impact: netWorthImpact(transaction),
+      period: change.currentPeriod,
+    }));
+}
+
+function compareNetWorthChangeEvidence(
+  left: Transaction,
+  right: Transaction,
+): number {
+  const leftMagnitude = Math.abs(netWorthImpact(left));
+  const rightMagnitude = Math.abs(netWorthImpact(right));
+
+  if (leftMagnitude !== rightMagnitude) {
+    return rightMagnitude - leftMagnitude;
+  }
+
+  return compareNewestFirst(left, right);
+}
+
+export type AccountPeriodActivity = {
+  year: number;
+  month: number;
+  count: number;
+  netMovement: number;
+  currency: CurrencyCode;
+};
+
+export function calculateAccountPeriodActivity(
+  transactions: Transaction[],
+  accountId: string,
+  year: number,
+  month: number,
+): AccountPeriodActivity {
+  const inPeriod = getAccountTransactions(transactions, accountId).filter(
+    (transaction) => isInMonth(transaction.date, year, month),
+  );
+  const netMovement = inPeriod.reduce((total, transaction) => {
+    return total + signedAmount(transaction, accountId);
+  }, 0);
+
+  return {
+    year,
+    month,
+    count: inPeriod.length,
+    netMovement,
+    currency: sharedCurrency(inPeriod.map((transaction) => transaction.currency)),
+  };
 }
 
 export function latestActivityMonth(

@@ -10,6 +10,9 @@ import {
   fixtureCards,
   fixtureTransactions,
   loadAppCards,
+  loadAppTransactions,
+  transactionsWithNeutralSeptemberNetWorth,
+  transactionsWithoutSeptemberIncome,
 } from "./fixtures.ts";
 
 describe("fixture accounts", () => {
@@ -210,5 +213,32 @@ describe("e2e-overdue dataset mapping", () => {
   it("keeps the default fixture cards outside the e2e-overdue Vite mode", () => {
     expect(import.meta.env.MODE).not.toBe("e2e-overdue");
     expect(loadAppCards()[0]?.paymentStatus).toBe("due");
+  });
+});
+
+describe("e2e net-worth dataset mapping", () => {
+  it("removes September income without mutating the default fixtures", () => {
+    const mapped = transactionsWithoutSeptemberIncome(fixtureTransactions);
+
+    expect(mapped.some((transaction) => transaction.id === "txn-001")).toBe(false);
+    expect(mapped.some((transaction) => transaction.id === "txn-002")).toBe(true);
+    expect(fixtureTransactions.some((transaction) => transaction.id === "txn-001")).toBe(
+      true,
+    );
+  });
+
+  it("keeps only net-worth-neutral September activity without mutating defaults", () => {
+    const mapped = transactionsWithNeutralSeptemberNetWorth(fixtureTransactions);
+
+    expect(mapped.some((transaction) => transaction.id === "txn-001")).toBe(false);
+    expect(mapped.some((transaction) => transaction.id === "txn-002")).toBe(false);
+    expect(mapped.some((transaction) => transaction.id === "txn-003")).toBe(true);
+    expect(fixtureTransactions).toHaveLength(15);
+  });
+
+  it("keeps the default fixture transactions outside the net-worth e2e modes", () => {
+    expect(import.meta.env.MODE).not.toBe("e2e-nw-decreased");
+    expect(import.meta.env.MODE).not.toBe("e2e-nw-unchanged");
+    expect(loadAppTransactions()).toEqual(fixtureTransactions);
   });
 });

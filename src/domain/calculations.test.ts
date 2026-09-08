@@ -15,9 +15,14 @@ import {
   calculateMonthlyIncome,
   calculateMonthlySavings,
   calculateMonthlySpending,
+  calculateAccountPeriodActivity,
   calculateNetWorth,
+  calculateNetWorthChange,
   calculateSpendingChange,
+  listNetWorthChangeEvidence,
   listSpendingChangeDrivers,
+  NET_WORTH_CHANGE_EVIDENCE_LIMIT,
+  netWorthImpact,
   SPENDING_CHANGE_DRIVER_LIMIT,
 } from "./calculations.ts";
 
@@ -1240,5 +1245,303 @@ describe("spending change drivers", () => {
     ]);
     expect(drivers[0]?.description).toBe("Rent — Oak Street Apt");
     expect(drivers[0]?.amount).toBe(1850);
+  });
+});
+
+describe("net worth change", () => {
+  it("returns null when there is no activity month", () => {
+    expect(
+      calculateNetWorthChange(
+        [account({ id: "bank", type: "bank", balance: 100 })],
+        [],
+        [],
+      ),
+    ).toBeNull();
+  });
+
+  it("rewinds the current snapshot by recorded activity in the latest month", () => {
+    const accounts = [account({ id: "bank", type: "bank", balance: 500 })];
+    const transactions = [
+      transaction({
+        id: "income",
+        date: "2026-09-03",
+        amount: 200,
+        eventType: "income",
+        accountId: "bank",
+      }),
+      transaction({
+        id: "expense",
+        date: "2026-09-02",
+        amount: 50,
+        eventType: "expense",
+        accountId: "bank",
+      }),
+      transaction({
+        id: "older",
+        date: "2026-08-20",
+        amount: 80,
+        eventType: "expense",
+        accountId: "bank",
+      }),
+    ];
+    const current = calculateNetWorth(accounts, []);
+    const result = calculateNetWorthChange(accounts, [], transactions);
+
+    expect(current.netWorth).toBe(500);
+    expect(result).toEqual({
+      currentPeriod: { year: 2026, month: 9 },
+      previousPeriod: { year: 2026, month: 8 },
+      currentNetWorth: 500,
+      previousNetWorth: 350,
+      absoluteChange: 150,
+      direction: "increased",
+      currency: "USD",
+    });
+  });
+
+  it("treats January as following December of the previous year", () => {
+    const accounts = [account({ id: "bank", type: "bank", balance: 80 })];
+    const result = calculateNetWorthChange(accounts, [], [
+      transaction({
+        id: "january-income",
+        date: "2026-01-04",
+        amount: 20,
+        eventType: "income",
+        accountId: "bank",
+      }),
+    ]);
+
+    expect(result?.currentPeriod).toEqual({ year: 2026, month: 1 });
+    expect(result?.previousPeriod).toEqual({ year: 2025, month: 12 });
+    expect(result?.previousNetWorth).toBe(60);
+  });
+
+  it("does not count transfers or card payments as net-worth movement", () => {
+    expect(
+      netWorthImpact(
+        transaction({
+          id: "transfer",
+          date: "2026-09-01",
+          amount: 400,
+          eventType: "transfer",
+          accountId: "bank",
+          counterpartyAccountId: "savings",
+        }),
+      ),
+    ).toBe(0);
+    expect(
+      netWorthImpact(
+        transaction({
+          id: "payment",
+          date: "2026-09-01",
+          amount: 250,
+          eventType: "card_payment",
+          accountId: "bank",
+          cardId: "card-visa",
+        }),
+      ),
+    ).toBe(0);
+  });
+
+  it("reports a decrease when latest-month records reduce net worth", () => {
+    const accounts = [account({ id: "bank", type: "bank", balance: 100 })];
+    const result = calculateNetWorthChange(accounts, [], [
+      transaction({
+        id: "spend",
+        date: "2026-09-02",
+        amount: 40,
+        eventType: "expense",
+        accountId: "bank",
+      }),
+    ]);
+
+    expect(result?.direction).toBe("decreased");
+    expect(result?.currentNetWorth).toBe(100);
+    expect(result?.previousNetWorth).toBe(140);
+    expect(result?.absoluteChange).toBe(40);
+  });
+
+  it("reports unchanged when latest-month records do not move net worth", () => {
+    const accounts = [account({ id: "bank", type: "bank", balance: 100 })];
+    const cards = [
+      card({ id: "card-visa", creditLimit: 1000, outstandingBalance: 200 }),
+    ];
+    const result = calculateNetWorthChange(accounts, cards, [
+      transaction({
+        id: "payment",
+        date: "2026-09-01",
+        amount: 25,
+        eventType: "card_payment",
+        accountId: "bank",
+        cardId: "card-visa",
+      }),
+    ]);
+
+    expect(result?.direction).toBe("unchanged");
+    expect(result?.absoluteChange).toBe(0);
+    expect(result?.previousNetWorth).toBe(result?.currentNetWorth);
+  });
+
+  it("uses fixture records for the fixture increase without inventing balances", () => {
+    const current = calculateNetWorth(fixtureAccounts, fixtureCards);
+    const result = calculateNetWorthChange(
+      fixtureAccounts,
+      fixtureCards,
+      fixtureTransactions,
+    );
+
+    expect(result?.currentPeriod).toEqual({ year: 2026, month: 9 });
+    expect(result?.previousPeriod).toEqual({ year: 2026, month: 8 });
+    expect(result?.currentNetWorth).toBe(current.netWorth);
+    expect(result?.direction).toBe("increased");
+    expect(result?.absoluteChange).toBeCloseTo(3200 - 87.42, 2);
+    expect(result?.previousNetWorth).toBeCloseTo(current.netWorth - (3200 - 87.42), 2);
+  });
+});
+
+describe("net worth change evidence", () => {
+  it("ranks latest-month movements by absolute impact and then newest first", () => {
+    const accounts = [account({ id: "bank", type: "bank", balance: 400 })];
+    const transactions = [
+      transaction({
+        id: "small-newer",
+        date: "2026-09-04",
+        amount: 10,
+        eventType: "expense",
+        accountId: "bank",
+        description: "Coffee",
+      }),
+      transaction({
+        id: "large",
+        date: "2026-09-02",
+        amount: 80,
+        eventType: "income",
+        accountId: "bank",
+        description: "Bonus",
+      }),
+      transaction({
+        id: "tied-newer",
+        date: "2026-09-03",
+        amount: 20,
+        eventType: "expense",
+        accountId: "bank",
+        description: "Lunch",
+      }),
+      transaction({
+        id: "tied-older",
+        date: "2026-09-01",
+        amount: 20,
+        eventType: "expense",
+        accountId: "bank",
+        description: "Dinner",
+      }),
+      transaction({
+        id: "neutral",
+        date: "2026-09-03",
+        amount: 50,
+        eventType: "transfer",
+        accountId: "bank",
+        counterpartyAccountId: "savings",
+        description: "Move",
+      }),
+      transaction({
+        id: "previous-month",
+        date: "2026-08-20",
+        amount: 90,
+        eventType: "income",
+        accountId: "bank",
+        description: "Older pay",
+      }),
+    ];
+    const change = calculateNetWorthChange(accounts, [], transactions);
+
+    expect(change?.direction).toBe("increased");
+    expect(listNetWorthChangeEvidence(transactions, change!)).toEqual([
+      {
+        transactionId: "large",
+        description: "Bonus",
+        impact: 80,
+        period: change!.currentPeriod,
+      },
+      {
+        transactionId: "tied-newer",
+        description: "Lunch",
+        impact: -20,
+        period: change!.currentPeriod,
+      },
+      {
+        transactionId: "tied-older",
+        description: "Dinner",
+        impact: -20,
+        period: change!.currentPeriod,
+      },
+    ]);
+    expect(NET_WORTH_CHANGE_EVIDENCE_LIMIT).toBe(3);
+  });
+
+  it("returns no evidence when net worth is unchanged", () => {
+    const accounts = [account({ id: "bank", type: "bank", balance: 100 })];
+    const transactions = [
+      transaction({
+        id: "payment",
+        date: "2026-09-01",
+        amount: 25,
+        eventType: "card_payment",
+        accountId: "bank",
+        cardId: "card-visa",
+      }),
+    ];
+    const change = calculateNetWorthChange(accounts, [], transactions);
+
+    expect(change?.direction).toBe("unchanged");
+    expect(listNetWorthChangeEvidence(transactions, change!)).toEqual([]);
+  });
+
+  it("uses fixture September movements for the fixture increase", () => {
+    const change = calculateNetWorthChange(
+      fixtureAccounts,
+      fixtureCards,
+      fixtureTransactions,
+    );
+    const evidence = listNetWorthChangeEvidence(fixtureTransactions, change!);
+
+    expect(evidence.map((item) => item.transactionId)).toEqual([
+      "txn-001",
+      "txn-002",
+    ]);
+    expect(evidence[0]?.description).toBe("Payroll — Acme Corp");
+    expect(evidence[0]?.impact).toBe(3200);
+    expect(evidence[1]?.impact).toBe(-87.42);
+  });
+});
+
+describe("account period activity", () => {
+  it("reuses account transaction relationships and signed amounts for the selected month", () => {
+    const activity = calculateAccountPeriodActivity(
+      fixtureTransactions,
+      "acc-checking",
+      2026,
+      9,
+    );
+
+    expect(activity).toEqual({
+      year: 2026,
+      month: 9,
+      count: 3,
+      netMovement: 2862.58,
+      currency: "USD",
+    });
+  });
+
+  it("returns zero activity when the account has no events in the selected month", () => {
+    const activity = calculateAccountPeriodActivity(
+      fixtureTransactions,
+      "acc-investment",
+      2026,
+      9,
+    );
+
+    expect(activity.count).toBe(0);
+    expect(activity.netMovement).toBe(0);
   });
 });
