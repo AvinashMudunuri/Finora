@@ -189,6 +189,28 @@ describe("Finora app navigation", () => {
     expect(screen.getByText("Payroll — Acme Corp")).toBeInTheDocument();
   });
 
+  it("opens Insights from the primary navigation and inspects spending", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Insights" }));
+
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Insights" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("list", { name: "Attention insights" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Card payment due" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Spending decreased" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Net worth increased" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Inspect spending" }));
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Spending" }),
+    ).toBeInTheDocument();
+  });
+
   it("opens the existing spending view from the spending-change insight", async () => {
     const user = userEvent.setup();
     render(<App />);

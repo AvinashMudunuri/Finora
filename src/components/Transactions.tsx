@@ -22,6 +22,7 @@ export type TransactionsProps = {
   onShowAccounts?: () => void;
   onShowCards?: () => void;
   onShowSpending?: () => void;
+  onShowInsights?: () => void;
 };
 
 export function Transactions({
@@ -34,6 +35,7 @@ export function Transactions({
   onShowAccounts,
   onShowCards,
   onShowSpending,
+  onShowInsights,
 }: TransactionsProps) {
   const [filter, setFilter] = useState<TransactionListFilter>({ kind: "all" });
 
@@ -74,6 +76,9 @@ export function Transactions({
         onShowTransactions={() => undefined}
         onShowSpending={() => {
           onShowSpending?.();
+        }}
+        onShowInsights={() => {
+          onShowInsights?.();
         }}
       />
 

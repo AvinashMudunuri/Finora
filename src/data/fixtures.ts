@@ -1,3 +1,4 @@
+import { HIGH_CARD_UTILIZATION_THRESHOLD } from "../domain/calculations.ts";
 import type { Account, Card, Transaction } from "../domain/types.ts";
 import { assertValidFinanceData } from "../domain/validate.ts";
 
@@ -74,12 +75,33 @@ export function cardsWithVisaOverduePaymentStatus(cards: Card[]): Card[] {
   );
 }
 
+export function cardsWithHighVisaUtilization(cards: Card[]): Card[] {
+  return cards.map((card) => {
+    if (card.id !== "card-visa") {
+      return card;
+    }
+    const outstandingBalance = card.creditLimit * HIGH_CARD_UTILIZATION_THRESHOLD;
+    return {
+      ...card,
+      outstandingBalance,
+      availableCredit: card.creditLimit - outstandingBalance,
+      paymentStatus: "current",
+    };
+  });
+}
+
 export function loadAppCards(): Card[] {
   if (import.meta.env.MODE === "e2e-all-current") {
     return cardsWithCurrentPaymentStatus(fixtureCards);
   }
   if (import.meta.env.MODE === "e2e-overdue") {
     return cardsWithVisaOverduePaymentStatus(fixtureCards);
+  }
+  if (import.meta.env.MODE === "e2e-high-util") {
+    return cardsWithHighVisaUtilization(fixtureCards);
+  }
+  if (import.meta.env.MODE === "e2e-no-attention") {
+    return cardsWithCurrentPaymentStatus(fixtureCards);
   }
   return fixtureCards;
 }
@@ -104,6 +126,9 @@ export function loadAppTransactions(): Transaction[] {
   }
   if (import.meta.env.MODE === "e2e-nw-unchanged") {
     return transactionsWithNeutralSeptemberNetWorth(fixtureTransactions);
+  }
+  if (import.meta.env.MODE === "e2e-no-attention") {
+    return [];
   }
   return fixtureTransactions;
 }

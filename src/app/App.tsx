@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Accounts } from "../components/Accounts.tsx";
 import { Cards } from "../components/Cards.tsx";
 import { Dashboard } from "../components/Dashboard.tsx";
+import { Insights } from "../components/Insights.tsx";
 import { Spending } from "../components/Spending.tsx";
 import { Transactions } from "../components/Transactions.tsx";
 import {
@@ -13,19 +14,27 @@ import {
 const appCards = loadAppCards();
 const appTransactions = loadAppTransactions();
 
-type AppView = "dashboard" | "accounts" | "cards" | "transactions" | "spending";
+type AppView =
+  | "dashboard"
+  | "accounts"
+  | "cards"
+  | "transactions"
+  | "spending"
+  | "insights";
 
 export default function App() {
   const [view, setView] = useState<AppView>("dashboard");
   const [selectedAccountId, setSelectedAccountId] = useState(
     fixtureAccounts[0]?.id ?? "",
   );
-  const [selectedCardId, setSelectedCardId] = useState(
-    appCards[0]?.id ?? "",
-  );
+  const [selectedCardId, setSelectedCardId] = useState(appCards[0]?.id ?? "");
   const [selectedTransactionId, setSelectedTransactionId] = useState(
     appTransactions[0]?.id ?? "",
   );
+
+  const openInsights = () => {
+    setView("insights");
+  };
 
   if (view === "accounts") {
     return (
@@ -47,6 +56,7 @@ export default function App() {
         onShowSpending={() => {
           setView("spending");
         }}
+        onShowInsights={openInsights}
         onOpenTransaction={(transactionId) => {
           setSelectedTransactionId(transactionId);
           setView("transactions");
@@ -74,6 +84,7 @@ export default function App() {
         onShowSpending={() => {
           setView("spending");
         }}
+        onShowInsights={openInsights}
         onOpenTransaction={(transactionId) => {
           setSelectedTransactionId(transactionId);
           setView("transactions");
@@ -102,6 +113,7 @@ export default function App() {
         onShowSpending={() => {
           setView("spending");
         }}
+        onShowInsights={openInsights}
       />
     );
   }
@@ -123,6 +135,40 @@ export default function App() {
         }}
         onShowTransactions={() => {
           setView("transactions");
+        }}
+        onShowInsights={openInsights}
+        onOpenTransaction={(transactionId) => {
+          setSelectedTransactionId(transactionId);
+          setView("transactions");
+        }}
+      />
+    );
+  }
+
+  if (view === "insights") {
+    return (
+      <Insights
+        accounts={fixtureAccounts}
+        cards={appCards}
+        transactions={appTransactions}
+        onShowDashboard={() => {
+          setView("dashboard");
+        }}
+        onShowAccounts={() => {
+          setView("accounts");
+        }}
+        onShowCards={() => {
+          setView("cards");
+        }}
+        onShowTransactions={() => {
+          setView("transactions");
+        }}
+        onShowSpending={() => {
+          setView("spending");
+        }}
+        onOpenCard={(cardId) => {
+          setSelectedCardId(cardId);
+          setView("cards");
         }}
         onOpenTransaction={(transactionId) => {
           setSelectedTransactionId(transactionId);
@@ -149,6 +195,7 @@ export default function App() {
       onShowSpending={() => {
         setView("spending");
       }}
+      onShowInsights={openInsights}
       onOpenAccount={(accountId) => {
         setSelectedAccountId(accountId);
         setView("accounts");

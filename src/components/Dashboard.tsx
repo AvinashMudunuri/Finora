@@ -11,8 +11,12 @@ import {
   latestActivityMonth,
   listNetWorthChangeEvidence,
   listSpendingChangeDrivers,
-  type SpendingChangeDirection,
 } from "../domain/calculations.ts";
+import {
+  netWorthChangeDirectionLabel,
+  netWorthChangeHeadline,
+  spendingChangeHeadline,
+} from "../domain/insights.ts";
 import {
   accountTypeLabel,
   formatCurrency,
@@ -40,43 +44,8 @@ export type DashboardProps = {
   onOpenCard?: (cardId: string) => void;
   onOpenAccount?: (accountId: string) => void;
   onOpenTransaction?: (transactionId: string) => void;
+  onShowInsights?: () => void;
 };
-
-function netWorthChangeHeadline(direction: SpendingChangeDirection): string {
-  if (direction === "increased") {
-    return "Net worth increased";
-  }
-
-  if (direction === "decreased") {
-    return "Net worth decreased";
-  }
-
-  return "Net worth unchanged";
-}
-
-function netWorthChangeDirectionLabel(direction: SpendingChangeDirection): string {
-  if (direction === "increased") {
-    return "Increased";
-  }
-
-  if (direction === "decreased") {
-    return "Decreased";
-  }
-
-  return "Unchanged";
-}
-
-function spendingChangeHeadline(direction: SpendingChangeDirection): string {
-  if (direction === "increased") {
-    return "Spending increased";
-  }
-
-  if (direction === "decreased") {
-    return "Spending decreased";
-  }
-
-  return "Spending unchanged";
-}
 
 export function Dashboard({
   accounts,
@@ -89,6 +58,7 @@ export function Dashboard({
   onOpenCard,
   onOpenAccount,
   onOpenTransaction,
+  onShowInsights,
 }: DashboardProps) {
   const [accountFilter, setAccountFilter] = useState("all");
 
@@ -153,6 +123,9 @@ export function Dashboard({
         }}
         onShowSpending={() => {
           onShowSpending?.();
+        }}
+        onShowInsights={() => {
+          onShowInsights?.();
         }}
       />
 

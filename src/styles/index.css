@@ -473,6 +473,14 @@ button {
   text-transform: none;
 }
 
+.insight-stack {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 1rem;
+}
+
 .insight-card {
   border: 1px solid var(--line);
   border-left: 4px solid var(--accent);
