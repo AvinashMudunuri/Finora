@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import {
   fixtureAccounts,
@@ -11,6 +11,7 @@ import {
   calculateSpendingChange,
 } from "../domain/calculations.ts";
 import { formatCurrency, formatMonth } from "../domain/finance.ts";
+import { attentionTitle, listAttentionInsights } from "../domain/insights.ts";
 import { Dashboard } from "./Dashboard.tsx";
 import { Insights } from "./Insights.tsx";
 
@@ -35,9 +36,20 @@ function sharedInsightCopy() {
   };
 }
 
+function attentionTitles() {
+  return within(screen.getByRole("list", { name: "Attention insights" }))
+    .getAllByRole("heading", { level: 3 })
+    .map((heading) => heading.textContent);
+}
+
 describe("Dashboard and Insights consistency", () => {
   it("shows the same spending, net-worth, and payment values on both views", () => {
     const copy = sharedInsightCopy();
+    const expectedTitles = listAttentionInsights(
+      fixtureAccounts,
+      fixtureCards,
+      fixtureTransactions,
+    ).map(attentionTitle);
 
     const dashboard = render(
       <Dashboard
@@ -52,9 +64,7 @@ describe("Dashboard and Insights consistency", () => {
     expect(screen.getByText(copy.netWorthBody)).toBeInTheDocument();
     expect(screen.getAllByText(copy.netWorthPeriod).length).toBeGreaterThan(0);
     expect(screen.getByText(copy.paymentName)).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Spending decreased" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Net worth increased" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Card payment due" })).toBeInTheDocument();
+    expect(attentionTitles()).toEqual(expectedTitles);
 
     dashboard.unmount();
 
@@ -71,9 +81,7 @@ describe("Dashboard and Insights consistency", () => {
     expect(screen.getByText(copy.netWorthBody)).toBeInTheDocument();
     expect(screen.getAllByText(copy.netWorthPeriod).length).toBeGreaterThan(0);
     expect(screen.getByText(copy.paymentName)).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Spending decreased" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Net worth increased" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Card payment due" })).toBeInTheDocument();
+    expect(attentionTitles()).toEqual(expectedTitles);
     expect(copy.spending.direction).toBe("decreased");
     expect(copy.netWorth.direction).toBe("increased");
     expect(copy.payment.cardId).toBe("card-visa");

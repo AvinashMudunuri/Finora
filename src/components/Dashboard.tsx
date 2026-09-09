@@ -2,24 +2,15 @@ import { useMemo, useState } from "react";
 import {
   calculateAssetBreakdown,
   calculateCardUtilization,
-  calculateCardPaymentAttention,
-  calculateHighCardUtilization,
   calculateMonthlySavings,
   calculateNetWorth,
   calculateNetWorthChange,
-  calculateSpendingChange,
   latestActivityMonth,
   listMonthlyNetWorthHistory,
-  listNetWorthChangeBreakdown,
-  listNetWorthChangeEvidence,
   listRecentMonthlyFlows,
-  listSpendingChangeDrivers,
 } from "../domain/calculations.ts";
-import {
-  netWorthChangeDirectionLabel,
-  netWorthChangeHeadline,
-  spendingChangeHeadline,
-} from "../domain/insights.ts";
+import { netWorthChangeDirectionLabel } from "../domain/insights.ts";
+import { AttentionInsights } from "./AttentionInsights.tsx";
 import {
   accountTypeLabel,
   formatCurrency,
@@ -94,30 +85,12 @@ export function Dashboard({
     );
   }, [cards]);
   const netWorthChange = calculateNetWorthChange(accounts, cards, transactions);
-  const netWorthEvidence = netWorthChange
-    ? listNetWorthChangeEvidence(transactions, netWorthChange)
-    : [];
-  const netWorthBreakdown = netWorthChange
-    ? listNetWorthChangeBreakdown(transactions, netWorthChange)
-    : null;
   const netWorthHistory = listMonthlyNetWorthHistory(
     accounts,
     cards,
     transactions,
   );
   const monthlyHistory = listRecentMonthlyFlows(transactions);
-  const spendingChange = calculateSpendingChange(transactions);
-  const drivers = spendingChange
-    ? listSpendingChangeDrivers(transactions, spendingChange)
-    : [];
-  const paymentAttention = calculateCardPaymentAttention(cards);
-  const paymentCard = paymentAttention
-    ? cardsById.get(paymentAttention.cardId)
-    : undefined;
-  const highUtilization = calculateHighCardUtilization(cards);
-  const attentionCard = highUtilization
-    ? cardsById.get(highUtilization.cardId)
-    : undefined;
 
   return (
     <div className="app-shell">
@@ -395,359 +368,24 @@ export function Dashboard({
           )}
         </section>
 
-        {netWorthChange ? (
-          <section className="panel" aria-labelledby="net-worth-change-heading">
-            <div className="panel-header">
-              <h2 id="net-worth-change-heading">Net worth change</h2>
-              <p className="panel-copy">
-                How the current snapshot compares with the previous calendar
-                month after reversing recorded activity in the latest month.
-                This does not use market prices or forecasts.
-              </p>
-            </div>
+        <section className="panel" aria-labelledby="attention-heading">
+          <div className="panel-header">
+            <h2 id="attention-heading">Attention</h2>
+            <p className="panel-copy">
+              What deserves inspection from stored records, using the same
+              attention list as Insights. No recommendations are invented.
+            </p>
+          </div>
+          <AttentionInsights
+            accounts={accounts}
+            cards={cards}
+            transactions={transactions}
+            onOpenCard={onOpenCard}
+            onOpenTransaction={onOpenTransaction}
+            onShowSpending={onShowSpending}
+          />
+        </section>
 
-            <article
-              className="insight-card"
-              data-direction={netWorthChange.direction}
-            >
-              <h3>{netWorthChangeHeadline(netWorthChange.direction)}</h3>
-              <p className="insight-body">
-                Net worth is{" "}
-                {formatCurrency(
-                  netWorthChange.currentNetWorth,
-                  netWorthChange.currency,
-                )}{" "}
-                this month, compared with{" "}
-                {formatCurrency(
-                  netWorthChange.previousNetWorth,
-                  netWorthChange.currency,
-                )}{" "}
-                last month.
-              </p>
-              <p className="stat-note">
-                {formatMonth(
-                  netWorthChange.currentPeriod.year,
-                  netWorthChange.currentPeriod.month,
-                )}{" "}
-                compared with{" "}
-                {formatMonth(
-                  netWorthChange.previousPeriod.year,
-                  netWorthChange.previousPeriod.month,
-                )}
-              </p>
-              <p className="stat-note">
-                Change:{" "}
-                {formatCurrency(
-                  netWorthChange.direction === "decreased"
-                    ? -netWorthChange.absoluteChange
-                    : netWorthChange.absoluteChange,
-                  netWorthChange.currency,
-                  netWorthChange.direction !== "unchanged",
-                )}
-              </p>
-              {netWorthBreakdown ? (
-                <dl
-                  className="position-breakdown"
-                  aria-label="Net worth change breakdown"
-                >
-                  <div>
-                    <dt>Account movement</dt>
-                    <dd>
-                      {formatCurrency(
-                        netWorthBreakdown.assetMovement,
-                        netWorthChange.currency,
-                        netWorthBreakdown.assetMovement !== 0,
-                      )}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Card movement</dt>
-                    <dd>
-                      {formatCurrency(
-                        netWorthBreakdown.liabilityMovement,
-                        netWorthChange.currency,
-                        netWorthBreakdown.liabilityMovement !== 0,
-                      )}
-                    </dd>
-                  </div>
-                </dl>
-              ) : null}
-              {netWorthEvidence.length > 0 ? (
-                <>
-                  <p className="stat-note">
-                    Largest recorded movements this month. These do not claim a
-                    complete cause.
-                  </p>
-                  <ol
-                    className="transaction-list"
-                    aria-label="Net worth change evidence"
-                  >
-                    {netWorthEvidence.map((item) => {
-                      const row = (
-                        <>
-                          <div className="transaction-main">
-                            <p className="transaction-description">
-                              {item.description}
-                            </p>
-                            <p className="transaction-meta">
-                              <span>
-                                {formatMonth(item.period.year, item.period.month)}
-                              </span>
-                            </p>
-                          </div>
-                          <div className="transaction-aside">
-                            <p
-                              className={
-                                item.impact < 0
-                                  ? "transaction-amount is-outflow"
-                                  : "transaction-amount is-inflow"
-                              }
-                            >
-                              {formatCurrency(
-                                item.impact,
-                                netWorthChange.currency,
-                                true,
-                              )}
-                            </p>
-                          </div>
-                        </>
-                      );
-
-                      return (
-                        <li key={item.transactionId}>
-                          {onOpenTransaction ? (
-                            <button
-                              type="button"
-                              className="transaction-row transaction-row-button"
-                              aria-label={`Inspect ${item.description}`}
-                              onClick={() => {
-                                onOpenTransaction(item.transactionId);
-                              }}
-                            >
-                              {row}
-                            </button>
-                          ) : (
-                            <div className="transaction-row">{row}</div>
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ol>
-                </>
-              ) : netWorthChange.direction === "unchanged" ? (
-                <p className="stat-note">
-                  Stored records do not show a net-worth movement to explain.
-                </p>
-              ) : (
-                <p className="stat-note">
-                  Stored records do not establish a trustworthy cause for this
-                  change.
-                </p>
-              )}
-            </article>
-          </section>
-        ) : null}
-
-        {spendingChange ? (
-          <section className="panel" aria-labelledby="spending-change-heading">
-            <div className="panel-header">
-              <h2 id="spending-change-heading">Spending change</h2>
-              <p className="panel-copy">
-                How spending this month compares with the previous month, using
-                the same expense and card-purchase totals as the spending
-                metric.
-              </p>
-            </div>
-
-            <article
-              className="insight-card"
-              data-direction={spendingChange.direction}
-            >
-              <h3>{spendingChangeHeadline(spendingChange.direction)}</h3>
-              <p className="insight-body">
-                You spent{" "}
-                {formatCurrency(
-                  spendingChange.currentSpending,
-                  spendingChange.currency,
-                )}{" "}
-                this month, compared with{" "}
-                {formatCurrency(
-                  spendingChange.previousSpending,
-                  spendingChange.currency,
-                )}{" "}
-                last month.
-              </p>
-              <p className="stat-note">
-                {formatMonth(
-                  spendingChange.currentPeriod.year,
-                  spendingChange.currentPeriod.month,
-                )}{" "}
-                compared with{" "}
-                {formatMonth(
-                  spendingChange.previousPeriod.year,
-                  spendingChange.previousPeriod.month,
-                )}
-              </p>
-              {drivers.length > 0 ? (
-                <>
-                  <p className="stat-note">
-                    Largest spending in{" "}
-                    {formatMonth(
-                      drivers[0]!.period.year,
-                      drivers[0]!.period.month,
-                    )}
-                  </p>
-                  <ol
-                    className="transaction-list"
-                    aria-label="Spending change drivers"
-                  >
-                    {drivers.map((driver) => {
-                      const row = (
-                        <>
-                          <div className="transaction-main">
-                            <p className="transaction-description">
-                              {driver.description}
-                            </p>
-                            <p className="transaction-meta">
-                              <span>
-                                {formatMonth(
-                                  driver.period.year,
-                                  driver.period.month,
-                                )}
-                              </span>
-                            </p>
-                          </div>
-                          <div className="transaction-aside">
-                            <p className="transaction-amount is-outflow">
-                              {formatCurrency(
-                                driver.amount,
-                                spendingChange.currency,
-                              )}
-                            </p>
-                          </div>
-                        </>
-                      );
-
-                      return (
-                        <li key={driver.transactionId}>
-                          {onOpenTransaction ? (
-                            <button
-                              type="button"
-                              className="transaction-row transaction-row-button"
-                              aria-label={`View ${driver.description}`}
-                              onClick={() => {
-                                onOpenTransaction(driver.transactionId);
-                              }}
-                            >
-                              {row}
-                            </button>
-                          ) : (
-                            <div className="transaction-row">{row}</div>
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ol>
-                </>
-              ) : null}
-              {onShowSpending ? (
-                <button
-                  type="button"
-                  className="inline-action"
-                  onClick={onShowSpending}
-                >
-                  Inspect spending
-                </button>
-              ) : null}
-            </article>
-          </section>
-        ) : null}
-
-
-        {paymentAttention && paymentCard ? (
-          <section className="panel" aria-labelledby="card-payment-heading">
-            <div className="panel-header">
-              <h2 id="card-payment-heading">Card payment</h2>
-              <p className="panel-copy">
-                A card whose stored payment status is due or overdue.
-              </p>
-            </div>
-
-            <article className="insight-card" data-direction="increased">
-              <h3>
-                Card payment{" "}
-                {paymentStatusLabel(paymentAttention.paymentStatus).toLowerCase()}
-              </h3>
-              <p className="insight-body">
-                {paymentCard.name} ·{" "}
-                {paymentStatusLabel(paymentAttention.paymentStatus)}
-              </p>
-              <p className="stat-note">
-                Due:{" "}
-                <time dateTime={paymentAttention.paymentDueDate}>
-                  {formatDate(paymentAttention.paymentDueDate)}
-                </time>
-              </p>
-              <p className="stat-note">
-                Minimum payment:{" "}
-                {formatCurrency(
-                  paymentAttention.minimumPayment,
-                  paymentCard.currency,
-                )}
-              </p>
-              <p className="stat-note">
-                Outstanding:{" "}
-                {formatCurrency(
-                  paymentAttention.outstandingBalance,
-                  paymentCard.currency,
-                )}
-              </p>
-              {onOpenCard ? (
-                <button
-                  type="button"
-                  className="inline-action"
-                  onClick={() => {
-                    onOpenCard(paymentAttention.cardId);
-                  }}
-                >
-                  Inspect card
-                </button>
-              ) : null}
-            </article>
-          </section>
-        ) : null}
-
-        {highUtilization && attentionCard ? (
-          <section className="panel" aria-labelledby="card-utilization-heading">
-            <div className="panel-header">
-              <h2 id="card-utilization-heading">Card utilization</h2>
-              <p className="panel-copy">
-                A card at or above the attention threshold, using the existing
-                utilization calculation.
-              </p>
-            </div>
-
-            <article className="insight-card" data-direction="increased">
-              <h3>{attentionCard.name} needs attention</h3>
-              <p className="insight-body">
-                Utilization is {formatUtilization(highUtilization.utilization)},
-                at or above {formatUtilization(highUtilization.threshold)}.
-              </p>
-              <p className="stat-note">Consider paying down the balance.</p>
-              {onOpenCard ? (
-                <button
-                  type="button"
-                  className="inline-action"
-                  onClick={() => {
-                    onOpenCard(highUtilization.cardId);
-                  }}
-                >
-                  Inspect card
-                </button>
-              ) : null}
-            </article>
-          </section>
-        ) : null}
 
         <section className="panel" aria-labelledby="accounts-heading">
           <div className="panel-header">

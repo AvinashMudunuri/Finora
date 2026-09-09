@@ -143,3 +143,25 @@ export function netWorthChangeDirectionLabel(
   }
   return "Unchanged";
 }
+
+export const ATTENTION_EMPTY_COPY =
+  "Nothing in the current attention rules requires inspection based on stored records. This is not a judgment that your finances are healthy.";
+
+export function attentionTitle(insight: AttentionInsight): string {
+  if (insight.kind === "card-payment-overdue") {
+    return "Card payment overdue";
+  }
+  if (insight.kind === "card-payment-due") {
+    return "Card payment due";
+  }
+  if (insight.kind === "high-card-utilization") {
+    return "High card utilization";
+  }
+  if (insight.kind === "spending-change") {
+    return spendingChangeHeadline(insight.change.direction);
+  }
+  if (insight.kind === "net-worth-change") {
+    return netWorthChangeHeadline(insight.change.direction);
+  }
+  return "Attention";
+}
