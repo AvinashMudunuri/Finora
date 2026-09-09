@@ -13,6 +13,7 @@ import {
   calculateHighCardUtilization,
   calculateNetWorthChange,
   calculateSpendingChange,
+  listNetWorthChangeBreakdown,
   listNetWorthChangeEvidence,
 } from "../domain/calculations.ts";
 import { formatCurrency, formatUtilization } from "../domain/finance.ts";
@@ -73,15 +74,19 @@ describe("Insights", () => {
     expect(screen.getByText("Visa Rewards · Due")).toBeInTheDocument();
   });
 
-  it("inspects spending, payment card, and net-worth evidence", async () => {
+  it("inspects spending, payment card, net worth, and net-worth evidence", async () => {
     const user = userEvent.setup();
     const onShowSpending = vi.fn();
+    const onShowDashboard = vi.fn();
     const onOpenCard = vi.fn();
     const onOpenTransaction = vi.fn();
-    const evidence = listNetWorthChangeEvidence(
+    const change = calculateNetWorthChange(
+      fixtureAccounts,
+      fixtureCards,
       fixtureTransactions,
-      calculateNetWorthChange(fixtureAccounts, fixtureCards, fixtureTransactions)!,
-    );
+    )!;
+    const evidence = listNetWorthChangeEvidence(fixtureTransactions, change);
+    const breakdown = listNetWorthChangeBreakdown(fixtureTransactions, change);
 
     render(
       <Insights
@@ -89,16 +94,28 @@ describe("Insights", () => {
         cards={fixtureCards}
         transactions={fixtureTransactions}
         onShowSpending={onShowSpending}
+        onShowDashboard={onShowDashboard}
         onOpenCard={onOpenCard}
         onOpenTransaction={onOpenTransaction}
       />,
     );
+
+    expect(screen.getByText("Account movement")).toBeInTheDocument();
+    expect(screen.getByText("Card movement")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        formatCurrency(breakdown.assetMovement, change.currency, true),
+      ),
+    ).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Inspect spending" }));
     expect(onShowSpending).toHaveBeenCalledTimes(1);
 
     await user.click(screen.getByRole("button", { name: "Inspect card" }));
     expect(onOpenCard).toHaveBeenCalledWith("card-visa");
+
+    await user.click(screen.getByRole("button", { name: "Inspect net worth" }));
+    expect(onShowDashboard).toHaveBeenCalledTimes(1);
 
     await user.click(
       screen.getByRole("button", { name: `Inspect ${evidence[0]!.description}` }),

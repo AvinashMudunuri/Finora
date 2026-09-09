@@ -7,6 +7,7 @@ import {
   latestActivityMonth,
   listMonthlyIncomeTransactions,
   listMonthlySpendingTransactions,
+  listRecentMonthlyFlows,
   listSpendingChangeDrivers,
   type SpendingChangeDirection,
 } from "../domain/calculations.ts";
@@ -113,6 +114,7 @@ export function Spending({
   const drivers = spendingChange
     ? listSpendingChangeDrivers(transactions, spendingChange)
     : [];
+  const monthlyHistory = listRecentMonthlyFlows(transactions);
 
   return (
     <div className="app-shell">
@@ -250,6 +252,55 @@ export function Spending({
             </article>
           </section>
         ) : null}
+
+        <section className="panel" aria-labelledby="monthly-history-heading">
+          <div className="panel-header">
+            <h2 id="monthly-history-heading">Recent months</h2>
+            <p className="panel-copy">
+              Income, spending, and savings for each stored activity month,
+              using the same monthly calculations as the selected month.
+            </p>
+          </div>
+
+          {monthlyHistory.length === 0 ? (
+            <p className="empty-state">
+              No stored activity months to compare income, spending, and savings.
+            </p>
+          ) : (
+            <table className="history-table">
+              <caption>Monthly income, spending, and savings</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Month</th>
+                  <th scope="col">Income</th>
+                  <th scope="col">Spending</th>
+                  <th scope="col">Savings</th>
+                </tr>
+              </thead>
+              <tbody>
+                {monthlyHistory.map((row) => (
+                  <tr key={`${row.year}-${row.month}`}>
+                    <th scope="row">
+                      <button
+                        type="button"
+                        className="inline-action history-month-action"
+                        aria-label={`Show ${formatMonth(row.year, row.month)}`}
+                        onClick={() => {
+                          setSelected({ year: row.year, month: row.month });
+                        }}
+                      >
+                        {formatMonth(row.year, row.month)}
+                      </button>
+                    </th>
+                    <td>{formatCurrency(row.income, row.currency)}</td>
+                    <td>{formatCurrency(row.spending, row.currency)}</td>
+                    <td>{formatCurrency(row.savings, row.currency)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </section>
 
         <section className="panel" aria-labelledby="month-heading">
           <div className="month-controls">

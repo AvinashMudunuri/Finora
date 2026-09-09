@@ -9,7 +9,10 @@ import {
   calculateNetWorthChange,
   calculateSpendingChange,
   latestActivityMonth,
+  listMonthlyNetWorthHistory,
+  listNetWorthChangeBreakdown,
   listNetWorthChangeEvidence,
+  listRecentMonthlyFlows,
   listSpendingChangeDrivers,
 } from "../domain/calculations.ts";
 import {
@@ -94,6 +97,15 @@ export function Dashboard({
   const netWorthEvidence = netWorthChange
     ? listNetWorthChangeEvidence(transactions, netWorthChange)
     : [];
+  const netWorthBreakdown = netWorthChange
+    ? listNetWorthChangeBreakdown(transactions, netWorthChange)
+    : null;
+  const netWorthHistory = listMonthlyNetWorthHistory(
+    accounts,
+    cards,
+    transactions,
+  );
+  const monthlyHistory = listRecentMonthlyFlows(transactions);
   const spendingChange = calculateSpendingChange(transactions);
   const drivers = spendingChange
     ? listSpendingChangeDrivers(transactions, spendingChange)
@@ -263,6 +275,40 @@ export function Dashboard({
           )}
         </section>
 
+        <section className="panel" aria-labelledby="net-worth-history-heading">
+          <div className="panel-header">
+            <h2 id="net-worth-history-heading">Net worth history</h2>
+            <p className="panel-copy">
+              End-of-month net worth for each stored activity month, rewound
+              from the current snapshot using recorded movements.
+            </p>
+          </div>
+
+          {netWorthHistory.length === 0 ? (
+            <p className="empty-state">
+              No stored activity months to derive a history from.
+            </p>
+          ) : (
+            <table className="history-table">
+              <caption>Monthly net worth</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Month</th>
+                  <th scope="col">Net worth</th>
+                </tr>
+              </thead>
+              <tbody>
+                {netWorthHistory.map((point) => (
+                  <tr key={`${point.year}-${point.month}`}>
+                    <th scope="row">{formatMonth(point.year, point.month)}</th>
+                    <td>{formatCurrency(point.netWorth, point.currency)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </section>
+
         <section className="panel" aria-labelledby="monthly-flow-heading">
           <div className="panel-header">
             <h2 id="monthly-flow-heading">Monthly flow</h2>
@@ -309,6 +355,44 @@ export function Dashboard({
               <p className="stat-note">Income − spending</p>
             </article>
           </div>
+        </section>
+
+        <section className="panel" aria-labelledby="monthly-history-heading">
+          <div className="panel-header">
+            <h2 id="monthly-history-heading">Recent months</h2>
+            <p className="panel-copy">
+              Income, spending, and savings for each stored activity month,
+              using the same monthly calculations as this dashboard.
+            </p>
+          </div>
+
+          {monthlyHistory.length === 0 ? (
+            <p className="empty-state">
+              No stored activity months to compare income, spending, and savings.
+            </p>
+          ) : (
+            <table className="history-table">
+              <caption>Monthly income, spending, and savings</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Month</th>
+                  <th scope="col">Income</th>
+                  <th scope="col">Spending</th>
+                  <th scope="col">Savings</th>
+                </tr>
+              </thead>
+              <tbody>
+                {monthlyHistory.map((row) => (
+                  <tr key={`${row.year}-${row.month}`}>
+                    <th scope="row">{formatMonth(row.year, row.month)}</th>
+                    <td>{formatCurrency(row.income, row.currency)}</td>
+                    <td>{formatCurrency(row.spending, row.currency)}</td>
+                    <td>{formatCurrency(row.savings, row.currency)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </section>
 
         {netWorthChange ? (
@@ -361,6 +445,33 @@ export function Dashboard({
                   netWorthChange.direction !== "unchanged",
                 )}
               </p>
+              {netWorthBreakdown ? (
+                <dl
+                  className="position-breakdown"
+                  aria-label="Net worth change breakdown"
+                >
+                  <div>
+                    <dt>Account movement</dt>
+                    <dd>
+                      {formatCurrency(
+                        netWorthBreakdown.assetMovement,
+                        netWorthChange.currency,
+                        netWorthBreakdown.assetMovement !== 0,
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Card movement</dt>
+                    <dd>
+                      {formatCurrency(
+                        netWorthBreakdown.liabilityMovement,
+                        netWorthChange.currency,
+                        netWorthBreakdown.liabilityMovement !== 0,
+                      )}
+                    </dd>
+                  </div>
+                </dl>
+              ) : null}
               {netWorthEvidence.length > 0 ? (
                 <>
                   <p className="stat-note">
