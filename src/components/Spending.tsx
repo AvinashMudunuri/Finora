@@ -30,6 +30,7 @@ export type SpendingProps = {
   onShowAccounts?: () => void;
   onShowCards?: () => void;
   onShowTransactions?: () => void;
+  onShowInsights?: () => void;
 };
 
 function shiftMonth(
@@ -65,6 +66,7 @@ export function Spending({
   onShowAccounts,
   onShowCards,
   onShowTransactions,
+  onShowInsights,
 }: SpendingProps) {
   const defaultMonth = latestActivityMonth(transactions);
   const [selected, setSelected] = useState(() => ({
@@ -129,6 +131,9 @@ export function Spending({
           onShowTransactions?.();
         }}
         onShowSpending={() => undefined}
+        onShowInsights={() => {
+          onShowInsights?.();
+        }}
       />
 
       <main className="page">

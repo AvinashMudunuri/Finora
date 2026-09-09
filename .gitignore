@@ -9,6 +9,8 @@ lerna-debug.log*
 
 node_modules
 dist
+dist-e2e-high-util
+dist-e2e-no-attention
 dist-ssr
 dev-dist
 *.local

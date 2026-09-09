@@ -5,6 +5,7 @@ import { ACCOUNT_TYPES, TRANSACTION_EVENT_TYPES } from "../domain/types.ts";
 import { assertValidFinanceData } from "../domain/validate.ts";
 import {
   cardsWithCurrentPaymentStatus,
+  cardsWithHighVisaUtilization,
   cardsWithVisaOverduePaymentStatus,
   fixtureAccounts,
   fixtureCards,
@@ -213,6 +214,33 @@ describe("e2e-overdue dataset mapping", () => {
   it("keeps the default fixture cards outside the e2e-overdue Vite mode", () => {
     expect(import.meta.env.MODE).not.toBe("e2e-overdue");
     expect(loadAppCards()[0]?.paymentStatus).toBe("due");
+  });
+});
+
+describe("e2e-high-util dataset mapping", () => {
+  it("raises Visa utilization to the existing threshold without mutating defaults", () => {
+    const mapped = cardsWithHighVisaUtilization(fixtureCards);
+
+    expect(mapped[0]?.outstandingBalance).toBe(3500);
+    expect(mapped[0]?.availableCredit).toBe(1500);
+    expect(mapped[0]?.paymentStatus).toBe("current");
+    expect(fixtureCards[0]?.outstandingBalance).toBe(1842.19);
+    expect(fixtureCards[0]?.paymentStatus).toBe("due");
+  });
+
+  it("keeps the default fixture cards outside the e2e-high-util Vite mode", () => {
+    expect(import.meta.env.MODE).not.toBe("e2e-high-util");
+    expect(loadAppCards()[0]?.outstandingBalance).toBe(1842.19);
+  });
+});
+
+describe("e2e-no-attention dataset mapping", () => {
+  it("uses current cards and no transactions for the empty-attention mode helper", () => {
+    expect(cardsWithCurrentPaymentStatus(fixtureCards)[0]?.paymentStatus).toBe(
+      "current",
+    );
+    expect(import.meta.env.MODE).not.toBe("e2e-no-attention");
+    expect(loadAppTransactions()).toEqual(fixtureTransactions);
   });
 });
 

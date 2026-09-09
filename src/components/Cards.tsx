@@ -25,6 +25,7 @@ export type CardsProps = {
   onShowAccounts?: () => void;
   onShowTransactions?: () => void;
   onShowSpending?: () => void;
+  onShowInsights?: () => void;
   onOpenTransaction?: (transactionId: string) => void;
 };
 
@@ -37,6 +38,7 @@ export function Cards({
   onShowAccounts,
   onShowTransactions,
   onShowSpending,
+  onShowInsights,
   onOpenTransaction,
 }: CardsProps) {
   const utilizationById = useMemo(() => {
@@ -69,6 +71,9 @@ export function Cards({
         }}
         onShowSpending={() => {
           onShowSpending?.();
+        }}
+        onShowInsights={() => {
+          onShowInsights?.();
         }}
       />
 
