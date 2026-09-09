@@ -17,7 +17,10 @@ import {
   calculateNetWorthChange,
   calculateSpendingChange,
   latestActivityMonth,
+  listMonthlyNetWorthHistory,
+  listNetWorthChangeBreakdown,
   listNetWorthChangeEvidence,
+  listRecentMonthlyFlows,
   listSpendingChangeDrivers,
 } from "../domain/calculations.ts";
 import type { Account, Card, Transaction } from "../domain/types.ts";
@@ -922,6 +925,14 @@ describe("Finora dashboard", () => {
       screen.queryByRole("region", { name: "Net worth change" }),
     ).not.toBeInTheDocument();
     expect(screen.queryByText("Net worth increased")).not.toBeInTheDocument();
+    expect(
+      screen.getByText("No stored activity months to derive a history from."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "No stored activity months to compare income, spending, and savings.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("opens net-worth evidence through the existing transaction callback", async () => {
@@ -1069,6 +1080,115 @@ describe("Finora dashboard", () => {
         `min ${formatCurrency(card.minimumPayment, card.currency)}`,
       );
     }
+  });
+
+  it("shows historical net worth for stored activity months only", () => {
+    renderDashboard();
+
+    const history = listMonthlyNetWorthHistory(
+      fixtureAccounts,
+      fixtureCards,
+      fixtureTransactions,
+    );
+    const region = screen.getByRole("region", { name: "Net worth history" });
+    const table = within(region).getByRole("table", { name: "Monthly net worth" });
+
+    expect(history.map((point) => `${point.year}-${point.month}`)).toEqual([
+      "2026-9",
+      "2026-8",
+    ]);
+    expect(within(table).getByText("September 2026")).toBeInTheDocument();
+    expect(within(table).getByText("August 2026")).toBeInTheDocument();
+    expect(
+      within(table).getByText(formatCurrency(history[0]!.netWorth, history[0]!.currency)),
+    ).toBeInTheDocument();
+    expect(
+      within(table).getByText(formatCurrency(history[1]!.netWorth, history[1]!.currency)),
+    ).toBeInTheDocument();
+    expect(within(table).queryByText("July 2026")).not.toBeInTheDocument();
+  });
+
+  it("shows one historical net-worth point when only one month is stored", () => {
+    const transactions = fixtureTransactions.filter((item) =>
+      item.date.startsWith("2026-09"),
+    );
+    const history = listMonthlyNetWorthHistory(
+      fixtureAccounts,
+      fixtureCards,
+      transactions,
+    );
+
+    render(
+      <Dashboard
+        accounts={fixtureAccounts}
+        cards={fixtureCards}
+        transactions={transactions}
+      />,
+    );
+
+    const table = screen.getByRole("table", { name: "Monthly net worth" });
+    expect(history).toHaveLength(1);
+    expect(within(table).getByText("September 2026")).toBeInTheDocument();
+    expect(within(table).queryByText("August 2026")).not.toBeInTheDocument();
+    expect(
+      within(table).getByText(formatCurrency(history[0]!.netWorth, history[0]!.currency)),
+    ).toBeInTheDocument();
+  });
+
+  it("shows account and card movement for the net-worth change", () => {
+    renderDashboard();
+
+    const change = calculateNetWorthChange(
+      fixtureAccounts,
+      fixtureCards,
+      fixtureTransactions,
+    );
+    const breakdown = listNetWorthChangeBreakdown(fixtureTransactions, change!);
+    const region = screen.getByRole("region", { name: "Net worth change" });
+    const details = within(region).getByText("Account movement").closest("dl");
+
+    expect(breakdown.assetMovement).toBeCloseTo(3200 - 87.42);
+    expect(breakdown.liabilityMovement).toBe(0);
+    expect(details).not.toBeNull();
+    expect(within(details!).getByText("Card movement")).toBeInTheDocument();
+    expect(
+      within(details!).getByText(
+        formatCurrency(breakdown.assetMovement, change!.currency, true),
+      ),
+    ).toBeInTheDocument();
+    expect(within(details!).getByText("$0.00")).toBeInTheDocument();
+  });
+
+  it("shows recent monthly income, spending, and savings history", () => {
+    renderDashboard();
+
+    const rows = listRecentMonthlyFlows(fixtureTransactions);
+    const region = screen.getByRole("region", { name: "Recent months" });
+    const table = within(region).getByRole("table", {
+      name: "Monthly income, spending, and savings",
+    });
+
+    expect(rows).toHaveLength(2);
+    expect(within(table).getByText("September 2026")).toBeInTheDocument();
+    expect(within(table).getByText("August 2026")).toBeInTheDocument();
+    expect(
+      within(table).getByText(formatCurrency(rows[0]!.income, rows[0]!.currency)),
+    ).toBeInTheDocument();
+    expect(
+      within(table).getByText(formatCurrency(rows[0]!.spending, rows[0]!.currency)),
+    ).toBeInTheDocument();
+    expect(
+      within(table).getByText(formatCurrency(rows[0]!.savings, rows[0]!.currency)),
+    ).toBeInTheDocument();
+    expect(
+      within(table).getByText(formatCurrency(rows[1]!.income, rows[1]!.currency)),
+    ).toBeInTheDocument();
+    expect(
+      within(table).getByText(formatCurrency(rows[1]!.spending, rows[1]!.currency)),
+    ).toBeInTheDocument();
+    expect(
+      within(table).getByText(formatCurrency(rows[1]!.savings, rows[1]!.currency)),
+    ).toBeInTheDocument();
   });
 
 });

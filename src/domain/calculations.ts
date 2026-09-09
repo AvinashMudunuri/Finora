@@ -516,6 +516,129 @@ function compareNetWorthChangeEvidence(
   return compareNewestFirst(left, right);
 }
 
+export type NetWorthChangeBreakdown = {
+  assetMovement: number;
+  liabilityMovement: number;
+};
+
+export function listNetWorthChangeBreakdown(
+  transactions: Transaction[],
+  change: NetWorthChangeResult,
+): NetWorthChangeBreakdown {
+  return transactions.reduce(
+    (totals, transaction) => {
+      if (
+        !isInMonth(
+          transaction.date,
+          change.currentPeriod.year,
+          change.currentPeriod.month,
+        )
+      ) {
+        return totals;
+      }
+
+      const impact = netWorthImpact(transaction);
+      if (impact === 0) {
+        return totals;
+      }
+
+      if (transaction.eventType === "card_purchase") {
+        totals.liabilityMovement += impact;
+      } else {
+        totals.assetMovement += impact;
+      }
+
+      return totals;
+    },
+    { assetMovement: 0, liabilityMovement: 0 },
+  );
+}
+
+export type MonthlyNetWorthResult = {
+  year: number;
+  month: number;
+  netWorth: number;
+  currency: CurrencyCode;
+};
+
+export function listActivityMonths(
+  transactions: Transaction[],
+): SpendingChangePeriod[] {
+  const seen = new Set<string>();
+  const months: SpendingChangePeriod[] = [];
+
+  for (const transaction of transactions) {
+    const period = parseYearMonth(transaction.date);
+    if (!period) {
+      continue;
+    }
+
+    const key = `${period.year}-${period.month}`;
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    months.push(period);
+  }
+
+  months.sort((left, right) => {
+    if (left.year !== right.year) {
+      return right.year - left.year;
+    }
+
+    return right.month - left.month;
+  });
+
+  return months;
+}
+
+export function listMonthlyNetWorthHistory(
+  accounts: Account[],
+  cards: Card[],
+  transactions: Transaction[],
+): MonthlyNetWorthResult[] {
+  const months = listActivityMonths(transactions);
+  if (months.length === 0) {
+    return [];
+  }
+
+  const current = calculateNetWorth(accounts, cards);
+  let running = current.netWorth;
+
+  return months.map((period) => {
+    const point = {
+      year: period.year,
+      month: period.month,
+      netWorth: running,
+      currency: current.currency,
+    };
+    running -= monthlyNetWorthImpact(transactions, period);
+    return point;
+  });
+}
+
+export function listRecentMonthlyFlows(
+  transactions: Transaction[],
+): MonthlySavingsResult[] {
+  return listActivityMonths(transactions).map((period) =>
+    calculateMonthlySavings(transactions, period.year, period.month),
+  );
+}
+
+function monthlyNetWorthImpact(
+  transactions: Transaction[],
+  period: SpendingChangePeriod,
+): number {
+  return transactions.reduce((total, transaction) => {
+    if (!isInMonth(transaction.date, period.year, period.month)) {
+      return total;
+    }
+
+    return total + netWorthImpact(transaction);
+  }, 0);
+}
+
 export type AccountPeriodActivity = {
   year: number;
   month: number;

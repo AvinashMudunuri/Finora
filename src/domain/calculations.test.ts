@@ -19,7 +19,11 @@ import {
   calculateNetWorth,
   calculateNetWorthChange,
   calculateSpendingChange,
+  listActivityMonths,
+  listMonthlyNetWorthHistory,
+  listNetWorthChangeBreakdown,
   listNetWorthChangeEvidence,
+  listRecentMonthlyFlows,
   listSpendingChangeDrivers,
   NET_WORTH_CHANGE_EVIDENCE_LIMIT,
   netWorthImpact,
@@ -1543,5 +1547,208 @@ describe("account period activity", () => {
 
     expect(activity.count).toBe(0);
     expect(activity.netMovement).toBe(0);
+  });
+});
+
+describe("activity months", () => {
+  it("lists unique stored months newest first and does not invent gaps", () => {
+    expect(listActivityMonths([])).toEqual([]);
+    expect(listActivityMonths(fixtureTransactions)).toEqual([
+      { year: 2026, month: 9 },
+      { year: 2026, month: 8 },
+    ]);
+    expect(
+      listActivityMonths([
+        transaction({
+          id: "july",
+          date: "2026-07-04",
+          amount: 10,
+          eventType: "expense",
+        }),
+        transaction({
+          id: "september",
+          date: "2026-09-02",
+          amount: 20,
+          eventType: "income",
+        }),
+      ]),
+    ).toEqual([
+      { year: 2026, month: 9 },
+      { year: 2026, month: 7 },
+    ]);
+  });
+});
+
+describe("monthly net worth history", () => {
+  it("returns no points when there is no stored activity", () => {
+    expect(
+      listMonthlyNetWorthHistory(
+        [account({ id: "bank", type: "bank", balance: 100 })],
+        [],
+        [],
+      ),
+    ).toEqual([]);
+  });
+
+  it("returns one current point when only one month is stored", () => {
+    const accounts = [account({ id: "bank", type: "bank", balance: 80 })];
+    const history = listMonthlyNetWorthHistory(accounts, [], [
+      transaction({
+        id: "january-income",
+        date: "2026-01-04",
+        amount: 20,
+        eventType: "income",
+        accountId: "bank",
+      }),
+    ]);
+
+    expect(history).toEqual([
+      { year: 2026, month: 1, netWorth: 80, currency: "USD" },
+    ]);
+  });
+
+  it("rewinds the current snapshot by each stored month without inventing values", () => {
+    const current = calculateNetWorth(fixtureAccounts, fixtureCards);
+    const change = calculateNetWorthChange(
+      fixtureAccounts,
+      fixtureCards,
+      fixtureTransactions,
+    );
+    const history = listMonthlyNetWorthHistory(
+      fixtureAccounts,
+      fixtureCards,
+      fixtureTransactions,
+    );
+
+    expect(history).toEqual([
+      {
+        year: 2026,
+        month: 9,
+        netWorth: current.netWorth,
+        currency: current.currency,
+      },
+      {
+        year: 2026,
+        month: 8,
+        netWorth: change!.previousNetWorth,
+        currency: current.currency,
+      },
+    ]);
+    expect(history[0]?.netWorth).toBe(change!.currentNetWorth);
+  });
+});
+
+describe("net worth change breakdown", () => {
+  it("splits the latest-month impact into account and card movement", () => {
+    const accounts = [account({ id: "bank", type: "bank", balance: 400 })];
+    const cards = [
+      card({ id: "card-visa", creditLimit: 1000, outstandingBalance: 50 }),
+    ];
+    const transactions = [
+      transaction({
+        id: "pay",
+        date: "2026-09-03",
+        amount: 200,
+        eventType: "income",
+        accountId: "bank",
+      }),
+      transaction({
+        id: "shop",
+        date: "2026-09-02",
+        amount: 40,
+        eventType: "expense",
+        accountId: "bank",
+      }),
+      transaction({
+        id: "card",
+        date: "2026-09-01",
+        amount: 25,
+        eventType: "card_purchase",
+        cardId: "card-visa",
+      }),
+      transaction({
+        id: "older",
+        date: "2026-08-20",
+        amount: 90,
+        eventType: "card_purchase",
+        cardId: "card-visa",
+      }),
+    ];
+    const change = calculateNetWorthChange(accounts, cards, transactions);
+    const breakdown = listNetWorthChangeBreakdown(transactions, change!);
+
+    expect(breakdown).toEqual({
+      assetMovement: 160,
+      liabilityMovement: -25,
+    });
+    expect(breakdown.assetMovement + breakdown.liabilityMovement).toBeCloseTo(
+      change!.currentNetWorth - change!.previousNetWorth,
+    );
+  });
+
+  it("reports zero movements when net worth is unchanged", () => {
+    const change = calculateNetWorthChange(
+      fixtureAccounts,
+      fixtureCards,
+      fixtureTransactions.filter(
+        (item) => item.id !== "txn-001" && item.id !== "txn-002",
+      ),
+    );
+    const breakdown = listNetWorthChangeBreakdown(
+      fixtureTransactions.filter(
+        (item) => item.id !== "txn-001" && item.id !== "txn-002",
+      ),
+      change!,
+    );
+
+    expect(change?.direction).toBe("unchanged");
+    expect(breakdown).toEqual({ assetMovement: 0, liabilityMovement: 0 });
+  });
+
+  it("uses fixture September account movement with no card movement", () => {
+    const change = calculateNetWorthChange(
+      fixtureAccounts,
+      fixtureCards,
+      fixtureTransactions,
+    );
+    const breakdown = listNetWorthChangeBreakdown(fixtureTransactions, change!);
+
+    expect(breakdown).toEqual({
+      assetMovement: 3200 - 87.42,
+      liabilityMovement: 0,
+    });
+  });
+});
+
+describe("recent monthly flows", () => {
+  it("reuses monthly savings for each stored activity month", () => {
+    expect(listRecentMonthlyFlows([])).toEqual([]);
+    expect(listRecentMonthlyFlows(fixtureTransactions)).toEqual([
+      calculateMonthlySavings(fixtureTransactions, 2026, 9),
+      calculateMonthlySavings(fixtureTransactions, 2026, 8),
+    ]);
+  });
+
+  it("keeps a single stored month and permits zero spending", () => {
+    const transactions = [
+      transaction({
+        id: "only-income",
+        date: "2026-09-03",
+        amount: 50,
+        eventType: "income",
+        accountId: "bank",
+      }),
+    ];
+
+    expect(listRecentMonthlyFlows(transactions)).toEqual([
+      {
+        year: 2026,
+        month: 9,
+        income: 50,
+        spending: 0,
+        savings: 50,
+        currency: "USD",
+      },
+    ]);
   });
 });

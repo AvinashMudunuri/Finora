@@ -1,4 +1,5 @@
 import {
+  listNetWorthChangeBreakdown,
   listNetWorthChangeEvidence,
   listSpendingChangeDrivers,
 } from "../domain/calculations.ts";
@@ -287,6 +288,10 @@ export function Insights({
                   transactions,
                   insight.change,
                 );
+                const breakdown = listNetWorthChangeBreakdown(
+                  transactions,
+                  insight.change,
+                );
                 return (
                   <li key={insight.kind}>
                     <article
@@ -330,6 +335,31 @@ export function Insights({
                           insight.change.direction !== "unchanged",
                         )}
                       </p>
+                      <dl
+                        className="position-breakdown"
+                        aria-label="Net worth change breakdown"
+                      >
+                        <div>
+                          <dt>Account movement</dt>
+                          <dd>
+                            {formatCurrency(
+                              breakdown.assetMovement,
+                              insight.change.currency,
+                              breakdown.assetMovement !== 0,
+                            )}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Card movement</dt>
+                          <dd>
+                            {formatCurrency(
+                              breakdown.liabilityMovement,
+                              insight.change.currency,
+                              breakdown.liabilityMovement !== 0,
+                            )}
+                          </dd>
+                        </div>
+                      </dl>
                       {evidence.length > 0 ? (
                         <ol
                           className="transaction-list"
@@ -377,6 +407,15 @@ export function Insights({
                             </li>
                           ))}
                         </ol>
+                      ) : null}
+                      {onShowDashboard ? (
+                        <button
+                          type="button"
+                          className="inline-action"
+                          onClick={onShowDashboard}
+                        >
+                          Inspect net worth
+                        </button>
                       ) : null}
                     </article>
                   </li>

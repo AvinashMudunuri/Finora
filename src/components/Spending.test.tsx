@@ -11,6 +11,7 @@ import {
   calculateMonthlySavings,
   calculateMonthlySpending,
   calculateSpendingChange,
+  listRecentMonthlyFlows,
   listSpendingChangeDrivers,
 } from "../domain/calculations.ts";
 import { formatCurrency, formatMonth } from "../domain/finance.ts";
@@ -52,13 +53,21 @@ describe("Finora spending view", () => {
     const spending = calculateMonthlySpending(fixtureTransactions, 2026, 9);
     const savings = calculateMonthlySavings(fixtureTransactions, 2026, 9);
 
+    const selectedMonth = screen.getByRole("region", { name: "September 2026" });
+
     expect(
       screen.getByRole("heading", { level: 1, name: "Spending" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "September 2026" })).toBeInTheDocument();
-    expect(screen.getByText(formatCurrency(income.total, "USD"))).toBeInTheDocument();
-    expect(screen.getByText(formatCurrency(spending.total, "USD"))).toBeInTheDocument();
-    expect(screen.getByText(formatCurrency(savings.savings, "USD"))).toBeInTheDocument();
+    expect(
+      within(selectedMonth).getByText(formatCurrency(income.total, "USD")),
+    ).toBeInTheDocument();
+    expect(
+      within(selectedMonth).getByText(formatCurrency(spending.total, "USD")),
+    ).toBeInTheDocument();
+    expect(
+      within(selectedMonth).getByText(formatCurrency(savings.savings, "USD")),
+    ).toBeInTheDocument();
     expect(screen.getByText("Income − spending")).toBeInTheDocument();
   });
 
@@ -69,10 +78,17 @@ describe("Finora spending view", () => {
     await user.click(screen.getByRole("button", { name: "Previous month" }));
 
     const august = calculateMonthlySavings(fixtureTransactions, 2026, 8);
+    const selectedMonth = screen.getByRole("region", { name: "August 2026" });
     expect(screen.getByRole("heading", { name: "August 2026" })).toBeInTheDocument();
-    expect(screen.getByText(formatCurrency(august.income, "USD"))).toBeInTheDocument();
-    expect(screen.getByText(formatCurrency(august.spending, "USD"))).toBeInTheDocument();
-    expect(screen.getByText(formatCurrency(august.savings, "USD"))).toBeInTheDocument();
+    expect(
+      within(selectedMonth).getByText(formatCurrency(august.income, "USD")),
+    ).toBeInTheDocument();
+    expect(
+      within(selectedMonth).getByText(formatCurrency(august.spending, "USD")),
+    ).toBeInTheDocument();
+    expect(
+      within(selectedMonth).getByText(formatCurrency(august.savings, "USD")),
+    ).toBeInTheDocument();
   });
 
   it("moves to the next month and shows zeros when the month is empty", async () => {
@@ -258,5 +274,32 @@ describe("Finora spending view", () => {
       screen.queryByRole("region", { name: "Spending change" }),
     ).not.toBeInTheDocument();
     expect(screen.queryByText("Spending decreased")).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "No stored activity months to compare income, spending, and savings.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("lists stored months and selects one from the history table", async () => {
+    const user = userEvent.setup();
+    renderSpending();
+
+    const rows = listRecentMonthlyFlows(fixtureTransactions);
+    const region = screen.getByRole("region", { name: "Recent months" });
+    const table = within(region).getByRole("table", {
+      name: "Monthly income, spending, and savings",
+    });
+
+    expect(within(table).getByText(formatCurrency(rows[0]!.income, "USD"))).toBeInTheDocument();
+    expect(within(table).getByText(formatCurrency(rows[1]!.spending, "USD"))).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Show August 2026" }));
+
+    const selectedMonth = screen.getByRole("region", { name: "August 2026" });
+    expect(screen.getByRole("heading", { name: "August 2026" })).toBeInTheDocument();
+    expect(
+      within(selectedMonth).getByText(formatCurrency(rows[1]!.income, "USD")),
+    ).toBeInTheDocument();
   });
 });
