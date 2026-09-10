@@ -20,9 +20,9 @@ describe("Finora web app manifest", () => {
 
   it("uses PNG icons with installable sizes", () => {
     expect(finoraWebManifest.icons.map((icon) => icon.src)).toEqual([
-      "pwa-192x192.png",
-      "pwa-512x512.png",
-      "pwa-512x512.png",
+      "finora-icon-192.png",
+      "finora-icon-512.png",
+      "finora-maskable-512.png",
     ]);
     expect(
       finoraWebManifest.icons.every((icon) => icon.type === "image/png"),

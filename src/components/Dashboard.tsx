@@ -144,7 +144,7 @@ export function Dashboard({
                   {formatCurrency(worth.assets, worth.currency)} assets −{" "}
                   {formatCurrency(worth.liabilities, worth.currency)} liabilities
                 </p>
-                <p className="stat-note">Assets − liabilities</p>
+                <p className="stat-note stat-note-quiet">Assets − liabilities</p>
                 {netWorthChange ? (
                   <dl className="position-breakdown">
                     <div>
@@ -158,7 +158,7 @@ export function Dashboard({
                     </div>
                     <div>
                       <dt>Change</dt>
-                      <dd>
+                      <dd className="stat-change">
                         {formatCurrency(
                           netWorthChange.direction === "decreased"
                             ? -netWorthChange.absoluteChange
@@ -195,7 +195,7 @@ export function Dashboard({
                     <dt>Cash</dt>
                     <dd>{formatCurrency(assets.cash, assets.currency)}</dd>
                   </div>
-                  <div>
+                  <div data-item="investment">
                     <dt>Investment</dt>
                     <dd>{formatCurrency(assets.investment, assets.currency)}</dd>
                   </div>

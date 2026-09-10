@@ -160,6 +160,7 @@ export function Spending({
 
             <article
               className="insight-card"
+              data-tone="observation"
               data-direction={spendingChange.direction}
             >
               <h3>{spendingChangeHeadline(spendingChange.direction)}</h3>

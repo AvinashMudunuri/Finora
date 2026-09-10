@@ -6,7 +6,9 @@ describe("FinoraLogo", () => {
   it("exposes the Finora name from the full wordmark", () => {
     render(<FinoraLogo />);
     expect(screen.getByText("Finora")).toBeInTheDocument();
-    expect(document.querySelector(".brand-wordmark")).toBeTruthy();
+    expect(document.querySelector(".brand-wordmark")?.getAttribute("src")).toBe(
+      "/brand/finora-wordmark.png",
+    );
     expect(document.querySelector(".brand-lockup.is-compact")).toBeNull();
   });
 
@@ -14,6 +16,8 @@ describe("FinoraLogo", () => {
     render(<FinoraLogo variant="mark" />);
     expect(screen.getByText("Finora")).toBeInTheDocument();
     expect(document.querySelector(".brand-lockup.is-compact")).toBeTruthy();
-    expect(document.querySelector(".brand-mark")).toBeTruthy();
+    expect(document.querySelector(".brand-mark")?.getAttribute("src")).toBe(
+      "/brand/finora-f-mark.png",
+    );
   });
 });

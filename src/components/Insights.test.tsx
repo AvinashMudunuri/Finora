@@ -39,6 +39,9 @@ describe("Insights", () => {
       "Spending decreased",
       "Net worth increased",
     ]);
+    expect(screen.getByText("Action required")).toBeInTheDocument();
+    expect(screen.getByText("Observation")).toBeInTheDocument();
+    expect(screen.getByText("Positive movement")).toBeInTheDocument();
     expect(screen.getByText("Priority 2")).toBeInTheDocument();
     expect(screen.getByText("Priority 4")).toBeInTheDocument();
     expect(screen.getByText("Priority 5")).toBeInTheDocument();
