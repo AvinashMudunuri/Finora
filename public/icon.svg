@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 64" fill="none">
   <defs>
-    <linearGradient id="finoraF" x1="6" y1="8" x2="58" y2="34" gradientUnits="userSpaceOnUse">
+    <linearGradient id="finoraF" x1="4" y1="12" x2="68" y2="28" gradientUnits="userSpaceOnUse">
       <stop stop-color="#2F8EDB" />
       <stop offset=".5" stop-color="#32C7D5" />
       <stop offset="1" stop-color="#52C7C3" />
@@ -8,10 +8,10 @@
   </defs>
   <path
     fill="url(#finoraF)"
-    d="M7 17c0-5.5 4.5-10 10-10h37c5.1 0 8.3 5.5 6.1 10.2C56.4 26.5 46 32 31 32H17C11.5 32 7 27.5 7 22v-5Z"
+    d="M6 22c0-7.2 5.8-13 13-13h41c6.6 0 10.5 7.2 7.4 13.4C64.2 28.8 57 32 48 32H19C11.8 32 6 26.2 6 19v3Z"
   />
   <path
     fill="#52C7C3"
-    d="M7 42c0-5 4-9 9-9h26c4.7 0 7.6 5 5.6 9.3C44.6 49.6 36 54 24 54H16C10.5 54 7 49.5 7 44v-2Z"
+    d="M6 48c0-6.1 4.9-11 11-11h24c5.9 0 9.4 6.5 6.7 11.7C45.4 53.4 39 56 31 56H17C10.9 56 6 51.1 6 45v3Z"
   />
 </svg>

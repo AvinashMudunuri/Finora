@@ -9,14 +9,14 @@ export function FinoraLogo({ variant = "full" }: FinoraLogoProps) {
         className="brand-wordmark"
         src="/brand/finora-wordmark.png"
         alt=""
-        height={28}
+        height={40}
       />
       <img
         className="brand-mark"
         src="/brand/finora-f-mark.png"
         alt=""
-        width={28}
-        height={28}
+        width={40}
+        height={40}
       />
       <span className="visually-hidden">Finora</span>
     </span>

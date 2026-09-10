@@ -63,6 +63,36 @@ export function AttentionInsights({
   );
 }
 
+function insightTone(insight: AttentionInsight): {
+  label: "Action required" | "Positive movement" | "Observation";
+  tone: "action" | "positive" | "observation";
+} {
+  if (
+    insight.kind === "card-payment-overdue" ||
+    insight.kind === "card-payment-due" ||
+    insight.kind === "high-card-utilization"
+  ) {
+    return { label: "Action required", tone: "action" };
+  }
+  if (insight.kind === "net-worth-change" && insight.change.direction === "increased") {
+    return { label: "Positive movement", tone: "positive" };
+  }
+  if (insight.kind === "net-worth-change") {
+    return { label: "Action required", tone: "action" };
+  }
+  return { label: "Observation", tone: "observation" };
+}
+
+function AttentionKicker({ insight }: { insight: AttentionInsight }) {
+  const { label } = insightTone(insight);
+  return (
+    <>
+      <p className="insight-tone">{label}</p>
+      <p className="stat-note">Priority {insight.priority}</p>
+    </>
+  );
+}
+
 function AttentionCard({
   insight,
   cardsById,
@@ -89,8 +119,8 @@ function AttentionCard({
       return null;
     }
     return (
-      <article className="insight-card" data-direction="increased">
-        <p className="stat-note">Priority {insight.priority}</p>
+      <article className="insight-card" data-tone={insightTone(insight).tone}>
+        <AttentionKicker insight={insight} />
         <h3>{attentionTitle(insight)}</h3>
         <p className="insight-body">
           {card.name} · {paymentStatusLabel(insight.payment.paymentStatus)}
@@ -130,8 +160,8 @@ function AttentionCard({
       return null;
     }
     return (
-      <article className="insight-card" data-direction="increased">
-        <p className="stat-note">Priority {insight.priority}</p>
+      <article className="insight-card" data-tone={insightTone(insight).tone}>
+        <AttentionKicker insight={insight} />
         <h3>{attentionTitle(insight)}</h3>
         <p className="insight-body">
           {card.name} is at {formatUtilization(insight.utilization.utilization)},
@@ -168,9 +198,10 @@ function AttentionCard({
     return (
       <article
         className="insight-card"
+        data-tone={insightTone(insight).tone}
         data-direction={insight.change.direction}
       >
-        <p className="stat-note">Priority {insight.priority}</p>
+        <AttentionKicker insight={insight} />
         <h3>{attentionTitle(insight)}</h3>
         <p className="insight-body">
           You spent{" "}
@@ -260,8 +291,12 @@ function AttentionCard({
   const evidence = listNetWorthChangeEvidence(transactions, insight.change);
   const breakdown = listNetWorthChangeBreakdown(transactions, insight.change);
   return (
-    <article className="insight-card" data-direction={insight.change.direction}>
-      <p className="stat-note">Priority {insight.priority}</p>
+    <article
+      className="insight-card"
+      data-tone={insightTone(insight).tone}
+      data-direction={insight.change.direction}
+    >
+      <AttentionKicker insight={insight} />
       <h3>{attentionTitle(insight)}</h3>
       <p className="insight-body">
         Net worth is{" "}
