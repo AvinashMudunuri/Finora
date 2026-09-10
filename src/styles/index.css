@@ -456,6 +456,23 @@ textarea[aria-invalid="true"] {
   margin-bottom: 0.85rem;
 }
 
+.transaction-search {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0 0 1rem;
+}
+
+.transaction-search span {
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.transaction-search input {
+  width: min(100%, 28rem);
+  max-width: 100%;
+}
+
 .filters {
   display: flex;
   flex-wrap: wrap;
@@ -717,6 +734,14 @@ textarea[aria-invalid="true"] {
 
   .site-nav-button {
     flex: 0 0 auto;
+  }
+
+  .transaction-search input {
+    width: 100%;
+  }
+
+  .month-controls {
+    gap: 0.35rem;
   }
 
   .position-breakdown div {

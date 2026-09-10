@@ -7,10 +7,21 @@ import type {
   TransactionEventType,
 } from "./types.ts";
 
-export type TransactionListFilter =
-  | { kind: "all" }
-  | { kind: "party"; id: string }
-  | { kind: "event"; eventType: TransactionEventType };
+export type TransactionListFilter = {
+  kind: "all" | "party" | "event";
+  id?: string;
+  eventType?: TransactionEventType;
+  query?: string;
+  year?: number;
+  month?: number;
+};
+
+export type TransactionListContext = {
+  accounts?: readonly Account[];
+  cards?: readonly Card[];
+};
+
+export type TransactionListEmptyReason = "none-stored" | "none-in-period" | "none-match";
 
 export function cashTotal(accounts: Account[]): number {
   return accounts.reduce((total, account) => {
@@ -71,10 +82,32 @@ export function signedAmount(
 export function listTransactions(
   transactions: Transaction[],
   filter: TransactionListFilter = { kind: "all" },
+  context: TransactionListContext = {},
 ): Transaction[] {
   return transactions
-    .filter((transaction) => matchesTransactionFilter(transaction, filter))
+    .filter((transaction) => matchesTransactionFilter(transaction, filter, context))
     .sort(compareTransactionsNewestFirst);
+}
+
+export function transactionListEmptyReason(
+  storedCount: number,
+  periodCount: number,
+  listedCount: number,
+  periodSelected: boolean,
+): TransactionListEmptyReason | null {
+  if (listedCount > 0) {
+    return null;
+  }
+
+  if (storedCount === 0) {
+    return "none-stored";
+  }
+
+  if (periodSelected && periodCount === 0) {
+    return "none-in-period";
+  }
+
+  return "none-match";
 }
 
 export function getRecentTransactions(
@@ -185,20 +218,71 @@ export function transactionContext(
 function matchesTransactionFilter(
   transaction: Transaction,
   filter: TransactionListFilter,
+  context: TransactionListContext,
 ): boolean {
-  if (filter.kind === "all") {
+  const partyId = filter.id;
+  const eventType = filter.eventType;
+
+  if (partyId) {
+    const matchesParty =
+      transaction.accountId === partyId ||
+      transaction.counterpartyAccountId === partyId ||
+      transaction.cardId === partyId;
+    if (!matchesParty) {
+      return false;
+    }
+  }
+
+  if (eventType && transaction.eventType !== eventType) {
+    return false;
+  }
+
+  if (
+    filter.year !== undefined &&
+    filter.month !== undefined &&
+    !isTransactionInMonth(transaction.date, filter.year, filter.month)
+  ) {
+    return false;
+  }
+
+  return matchesTransactionQuery(transaction, filter.query, context);
+}
+
+function matchesTransactionQuery(
+  transaction: Transaction,
+  query: string | undefined,
+  context: TransactionListContext,
+): boolean {
+  const needle = query?.trim().toLowerCase();
+  if (!needle) {
     return true;
   }
 
-  if (filter.kind === "event") {
-    return transaction.eventType === filter.eventType;
-  }
+  const accounts = context.accounts ?? [];
+  const cards = context.cards ?? [];
+  const accountNames = [transaction.accountId, transaction.counterpartyAccountId]
+    .filter((id): id is string => id !== null)
+    .map((id) => accounts.find((account) => account.id === id)?.name ?? "");
+  const cardName = transaction.cardId
+    ? (cards.find((card) => card.id === transaction.cardId)?.name ?? "")
+    : "";
 
-  return (
-    transaction.accountId === filter.id ||
-    transaction.counterpartyAccountId === filter.id ||
-    transaction.cardId === filter.id
-  );
+  const haystack = [
+    transaction.description,
+    transaction.eventType,
+    eventTypeLabel(transaction.eventType),
+    ...accountNames,
+    cardName,
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  return haystack.includes(needle);
+}
+
+function isTransactionInMonth(isoDate: string, year: number, month: number): boolean {
+  const [parsedYear, parsedMonth] = isoDate.split("-").map(Number);
+  return parsedYear === year && parsedMonth === month;
 }
 
 function compareTransactionsNewestFirst(

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   fixtureAccounts,
   fixtureCards,
@@ -94,7 +94,7 @@ describe("Finora transactions list", () => {
     await user.click(
       within(screen.getByRole("group", { name: "Filter transactions" })).getByRole(
         "button",
-        { name: "Emergency Savings" },
+        { name: "Show only Emergency Savings" },
       ),
     );
 
@@ -124,7 +124,7 @@ describe("Finora transactions list", () => {
     await user.click(
       within(screen.getByRole("group", { name: "Filter transactions" })).getByRole(
         "button",
-        { name: "Visa Rewards" },
+        { name: "Show only Visa Rewards" },
       ),
     );
 
@@ -143,7 +143,7 @@ describe("Finora transactions list", () => {
     await user.click(
       within(screen.getByRole("group", { name: "Filter transactions" })).getByRole(
         "button",
-        { name: "Card purchase" },
+        { name: "Show only Card purchase" },
       ),
     );
 
@@ -178,12 +178,12 @@ describe("Finora transactions list", () => {
     await user.click(
       within(screen.getByRole("group", { name: "Filter transactions" })).getByRole(
         "button",
-        { name: "New Brokerage" },
+        { name: "Show only New Brokerage" },
       ),
     );
 
     expect(
-      screen.getByText("No transactions for this filter."),
+      screen.getByText("No transactions match the current search and filters."),
     ).toBeInTheDocument();
   });
 
@@ -268,12 +268,109 @@ describe("Finora transaction detail", () => {
     await user.click(
       within(screen.getByRole("group", { name: "Filter transactions" })).getByRole(
         "button",
-        { name: "Emergency Savings" },
+        { name: "Show only Emergency Savings" },
       ),
     );
 
     expect(
       screen.getByText("This transaction is not in the current filter."),
     ).toBeInTheDocument();
+  });
+});
+
+describe("Finora transaction search and periods", () => {
+  it("searches stored description, event, and account context", async () => {
+    const user = userEvent.setup();
+    renderTransactions();
+
+    await user.type(
+      screen.getByRole("searchbox", { name: "Search transactions" }),
+      "metro",
+    );
+
+    const list = transactionList();
+    expect(within(list).getByText("Transit — Metro Card")).toBeInTheDocument();
+    expect(within(list).queryByText("Payroll — Acme Corp")).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/1 transaction · All stored months · “metro”/),
+    ).toBeInTheDocument();
+  });
+
+  it("combines search with account and event filters", async () => {
+    const user = userEvent.setup();
+    renderTransactions();
+
+    await user.click(
+      within(screen.getByRole("group", { name: "Filter transactions" })).getByRole(
+        "button",
+        { name: "Show only Visa Rewards" },
+      ),
+    );
+    await user.click(
+      within(screen.getByRole("group", { name: "Filter transactions" })).getByRole(
+        "button",
+        { name: "Show only Card purchase" },
+      ),
+    );
+    await user.type(
+      screen.getByRole("searchbox", { name: "Search transactions" }),
+      "dinner",
+    );
+
+    const list = transactionList();
+    expect(within(list).getByText("Dinner — Riverview")).toBeInTheDocument();
+    expect(within(list).queryByText("Payment — Thank you")).not.toBeInTheDocument();
+    expect(within(list).queryByText("Transit — Metro Card")).not.toBeInTheDocument();
+  });
+
+  it("navigates stored activity months without inventing empty months", async () => {
+    const user = userEvent.setup();
+    renderTransactions();
+
+    await user.click(screen.getByRole("button", { name: "Older period" }));
+    expect(screen.getByRole("heading", { name: "September 2026" })).toBeInTheDocument();
+    expect(within(transactionList()).getByText("Payroll — Acme Corp")).toBeInTheDocument();
+    expect(within(transactionList()).queryByText("Dividend — VTI")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Older period" }));
+    expect(screen.getByRole("heading", { name: "August 2026" })).toBeInTheDocument();
+    expect(within(transactionList()).getByText("Dividend — VTI")).toBeInTheDocument();
+    expect(within(transactionList()).queryByText("Payroll — Acme Corp")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Older period" })).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "Newer period" }));
+    expect(screen.getByRole("heading", { name: "September 2026" })).toBeInTheDocument();
+  });
+
+  it("shows a dedicated empty state for an unmatched search", async () => {
+    const user = userEvent.setup();
+    renderTransactions();
+
+    await user.type(
+      screen.getByRole("searchbox", { name: "Search transactions" }),
+      "no-such-merchant",
+    );
+
+    expect(
+      screen.getByText("No transactions match the current search and filters."),
+    ).toBeInTheDocument();
+  });
+
+  it("opens the related account from transaction detail", async () => {
+    const user = userEvent.setup();
+    const onOpenAccount = vi.fn();
+    render(
+      <Transactions
+        accounts={fixtureAccounts}
+        cards={fixtureCards}
+        transactions={fixtureTransactions}
+        selectedTransactionId="txn-001"
+        onSelectTransaction={() => undefined}
+        onOpenAccount={onOpenAccount}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Inspect Everyday Checking" }));
+    expect(onOpenAccount).toHaveBeenCalledWith("acc-checking");
   });
 });

@@ -101,6 +101,14 @@ export default function App() {
         transactions={appTransactions}
         selectedTransactionId={selectedTransactionId}
         onSelectTransaction={setSelectedTransactionId}
+        onOpenAccount={(accountId) => {
+          setSelectedAccountId(accountId);
+          setView("accounts");
+        }}
+        onOpenCard={(cardId) => {
+          setSelectedCardId(cardId);
+          setView("cards");
+        }}
         onShowDashboard={() => {
           setView("dashboard");
         }}
