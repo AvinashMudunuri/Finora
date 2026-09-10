@@ -17,6 +17,7 @@ import {
   listNetWorthChangeEvidence,
 } from "../domain/calculations.ts";
 import { formatCurrency, formatUtilization } from "../domain/finance.ts";
+import { ATTENTION_EMPTY_COPY } from "../domain/insights.ts";
 import { Insights } from "./Insights.tsx";
 
 describe("Insights", () => {
@@ -38,6 +39,9 @@ describe("Insights", () => {
       "Spending decreased",
       "Net worth increased",
     ]);
+    expect(screen.getByText("Priority 2")).toBeInTheDocument();
+    expect(screen.getByText("Priority 4")).toBeInTheDocument();
+    expect(screen.getByText("Priority 5")).toBeInTheDocument();
   });
 
   it("uses the same spending and net-worth values as the existing calculations", () => {
@@ -141,11 +145,21 @@ describe("Insights", () => {
     expect(high).not.toBeNull();
     expect(
       screen.getByText(
-        `Utilization is ${formatUtilization(high!.utilization)}, at or above ${formatUtilization(high!.threshold)}.`,
+        `Visa Rewards is at ${formatUtilization(high!.utilization)}, at or above ${formatUtilization(high!.threshold)}.`,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        `Outstanding: ${formatCurrency(high!.outstandingBalance, "USD")}`,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        `Credit limit: ${formatCurrency(high!.creditLimit, "USD")}`,
       ),
     ).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Inspect utilization" }));
+    await user.click(screen.getByRole("button", { name: "Inspect card" }));
     expect(onOpenCard).toHaveBeenCalledWith("card-visa");
   });
 
@@ -158,9 +172,7 @@ describe("Insights", () => {
       />,
     );
 
-    expect(
-      screen.getByText("Nothing requires attention based on the available stored data."),
-    ).toBeInTheDocument();
+    expect(screen.getByText(ATTENTION_EMPTY_COPY)).toBeInTheDocument();
     expect(screen.queryByRole("list", { name: "Attention insights" })).not.toBeInTheDocument();
     expect(screen.queryByText(/consider/i)).not.toBeInTheDocument();
   });

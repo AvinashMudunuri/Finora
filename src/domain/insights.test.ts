@@ -13,7 +13,11 @@ import {
   calculateNetWorthChange,
   calculateSpendingChange,
 } from "./calculations.ts";
-import { listAttentionInsights } from "./insights.ts";
+import {
+  ATTENTION_EMPTY_COPY,
+  attentionTitle,
+  listAttentionInsights,
+} from "./insights.ts";
 
 describe("listAttentionInsights", () => {
   it("orders default fixture insights as due payment, spending change, then net-worth change", () => {
@@ -101,5 +105,33 @@ describe("listAttentionInsights", () => {
     expect(
       insights[0] && insights[0].kind === "high-card-utilization" && insights[0].utilization,
     ).toEqual(expected);
+  });
+
+  it("names attention items from existing headlines without advice", () => {
+    const defaultInsights = listAttentionInsights(
+      fixtureAccounts,
+      fixtureCards,
+      fixtureTransactions,
+    );
+    const overdue = listAttentionInsights(
+      fixtureAccounts,
+      cardsWithVisaOverduePaymentStatus(fixtureCards),
+      [],
+    )[0]!;
+    const highUtil = listAttentionInsights(
+      fixtureAccounts,
+      cardsWithHighVisaUtilization(fixtureCards),
+      [],
+    )[0]!;
+
+    expect(defaultInsights.map(attentionTitle)).toEqual([
+      "Card payment due",
+      "Spending decreased",
+      "Net worth increased",
+    ]);
+    expect(attentionTitle(overdue)).toBe("Card payment overdue");
+    expect(attentionTitle(highUtil)).toBe("High card utilization");
+    expect(ATTENTION_EMPTY_COPY).toMatch(/not a judgment/i);
+    expect(ATTENTION_EMPTY_COPY).not.toMatch(/consider/i);
   });
 });

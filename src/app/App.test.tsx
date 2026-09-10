@@ -215,7 +215,8 @@ describe("Finora app navigation", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    expect(screen.getByRole("region", { name: "Spending change" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Attention" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Spending decreased" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Inspect spending" })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Inspect spending" }));
@@ -263,9 +264,12 @@ describe("Finora app navigation", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    const region = screen.getByRole("region", { name: "Net worth change" });
+    const region = screen
+      .getByRole("heading", { name: "Net worth increased" })
+      .closest("article");
+    expect(region).not.toBeNull();
     await user.click(
-      within(region).getByRole("button", { name: "Inspect Payroll — Acme Corp" }),
+      within(region!).getByRole("button", { name: "Inspect Payroll — Acme Corp" }),
     );
 
     const detail = screen.getByRole("region", { name: "Payroll — Acme Corp" });
