@@ -1,3 +1,5 @@
+import { FinoraLogo } from "../brand/FinoraLogo.tsx";
+
 export type AppView =
   | "dashboard"
   | "accounts"
@@ -28,14 +30,16 @@ export function SiteHeader({
   return (
     <header className="site-header">
       <div className="brand">
-        <p className="brand-name">Finora</p>
+        <p className="brand-name">
+          <FinoraLogo />
+        </p>
         <p className="brand-tagline">Your financial life, clearly connected</p>
       </div>
       <nav className="site-nav" aria-label="Primary">
         <button
           type="button"
           className={
-            current === "dashboard" ? "filter-chip is-active" : "filter-chip"
+            current === "dashboard" ? "site-nav-button is-active" : "site-nav-button"
           }
           aria-current={current === "dashboard" ? "page" : undefined}
           onClick={onShowDashboard}
@@ -45,7 +49,7 @@ export function SiteHeader({
         <button
           type="button"
           className={
-            current === "accounts" ? "filter-chip is-active" : "filter-chip"
+            current === "accounts" ? "site-nav-button is-active" : "site-nav-button"
           }
           aria-current={current === "accounts" ? "page" : undefined}
           onClick={() => {
@@ -56,7 +60,7 @@ export function SiteHeader({
         </button>
         <button
           type="button"
-          className={current === "cards" ? "filter-chip is-active" : "filter-chip"}
+          className={current === "cards" ? "site-nav-button is-active" : "site-nav-button"}
           aria-current={current === "cards" ? "page" : undefined}
           onClick={onShowCards}
         >
@@ -65,7 +69,7 @@ export function SiteHeader({
         <button
           type="button"
           className={
-            current === "transactions" ? "filter-chip is-active" : "filter-chip"
+            current === "transactions" ? "site-nav-button is-active" : "site-nav-button"
           }
           aria-current={current === "transactions" ? "page" : undefined}
           onClick={onShowTransactions}
@@ -75,7 +79,7 @@ export function SiteHeader({
         <button
           type="button"
           className={
-            current === "spending" ? "filter-chip is-active" : "filter-chip"
+            current === "spending" ? "site-nav-button is-active" : "site-nav-button"
           }
           aria-current={current === "spending" ? "page" : undefined}
           onClick={() => {
@@ -87,7 +91,7 @@ export function SiteHeader({
         <button
           type="button"
           className={
-            current === "insights" ? "filter-chip is-active" : "filter-chip"
+            current === "insights" ? "site-nav-button is-active" : "site-nav-button"
           }
           aria-current={current === "insights" ? "page" : undefined}
           onClick={() => {

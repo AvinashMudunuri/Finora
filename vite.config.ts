@@ -8,7 +8,16 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.svg", "apple-touch-icon.png"],
+      includeAssets: [
+        "favicon.svg",
+        "icon.svg",
+        "apple-touch-icon.png",
+        "pwa-192x192.png",
+        "pwa-512x512.png",
+        "brand/finora-f-mark.png",
+        "brand/finora-wordmark.png",
+        "brand/finora-pwa-maskable.png",
+      ],
       manifest: finoraWebManifest,
       workbox: {
         globPatterns: ["**/*.{js,css,html,svg,png,webmanifest}"],

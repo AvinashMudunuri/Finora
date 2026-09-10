@@ -24,8 +24,8 @@ export const finoraWebManifest: FinoraWebManifest = {
   start_url: "/",
   scope: "/",
   display: "standalone",
-  background_color: "#f3efe6",
-  theme_color: "#1f5c45",
+  background_color: "#FFFFFF",
+  theme_color: "#0B1B34",
   icons: [
     {
       src: "pwa-192x192.png",

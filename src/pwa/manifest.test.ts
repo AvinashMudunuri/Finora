@@ -8,8 +8,8 @@ describe("Finora web app manifest", () => {
     expect(finoraWebManifest.start_url).toBe("/");
     expect(finoraWebManifest.scope).toBe("/");
     expect(finoraWebManifest.display).toBe("standalone");
-    expect(finoraWebManifest.theme_color).toBe("#1f5c45");
-    expect(finoraWebManifest.background_color).toBe("#f3efe6");
+    expect(finoraWebManifest.theme_color).toBe("#0B1B34");
+    expect(finoraWebManifest.background_color).toBe("#FFFFFF");
     expect(
       finoraWebManifest.icons.some((icon) => icon.sizes === "192x192"),
     ).toBe(true);
