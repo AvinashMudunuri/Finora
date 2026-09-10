@@ -62,7 +62,7 @@ describe("Finora dashboard", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: "Dashboard" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Finora")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Finora" })).toBeInTheDocument();
   });
 
   it("shows account and card positions from the fixture data", () => {

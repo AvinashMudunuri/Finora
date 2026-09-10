@@ -136,41 +136,10 @@ textarea[aria-invalid="true"] {
   line-height: 0;
 }
 
-.brand-lockup {
-  display: inline-flex;
-  align-items: center;
-}
-
 .brand-wordmark {
   display: block;
   height: 40px;
   width: auto;
-}
-
-.brand-mark {
-  display: none;
-  width: 40px;
-  height: 40px;
-}
-
-.brand-lockup.is-compact .brand-wordmark {
-  display: none;
-}
-
-.brand-lockup.is-compact .brand-mark {
-  display: block;
-}
-
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
 }
 
 .brand-tagline {
@@ -734,14 +703,6 @@ textarea[aria-invalid="true"] {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.35rem;
-  }
-
-  .brand-lockup:not(.is-compact) .brand-wordmark {
-    display: none;
-  }
-
-  .brand-lockup:not(.is-compact) .brand-mark {
-    display: block;
   }
 
   .brand-tagline {
