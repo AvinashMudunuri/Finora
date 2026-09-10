@@ -11,6 +11,7 @@ import {
   getRecentTransactions,
   listTransactions,
   netBalance,
+  transactionListEmptyReason,
   paymentStatusLabel,
   signedAmount,
   transactionContext,
@@ -495,5 +496,146 @@ describe("transaction listing", () => {
       ),
     ).toEqual(["card"]);
     expect(listTransactions(source, { kind: "all" })).toHaveLength(2);
+  });
+
+  it("combines party, event type, query, and period without changing order", () => {
+    const accounts: Account[] = [
+      {
+        id: "acc-checking",
+        name: "Everyday Checking",
+        type: "bank",
+        balance: 1,
+        currency: "USD",
+      },
+    ];
+    const cards: Card[] = [
+      {
+        id: "card-visa",
+        name: "Visa Rewards",
+        issuer: "Bank",
+        creditLimit: 1000,
+        outstandingBalance: 10,
+        availableCredit: 990,
+        currency: "USD",
+        statementPeriodEnd: "2026-09-08",
+        paymentDueDate: "2026-09-22",
+        minimumPayment: 25,
+        paymentStatus: "current",
+      },
+    ];
+    const source: Transaction[] = [
+      {
+        id: "txn-sep-dinner",
+        date: "2026-09-04",
+        description: "Dinner — Riverview",
+        amount: 8,
+        currency: "USD",
+        eventType: "card_purchase",
+        accountId: null,
+        counterpartyAccountId: null,
+        cardId: "card-visa",
+      },
+      {
+        id: "txn-aug-dinner",
+        date: "2026-08-20",
+        description: "Dinner — Earlier",
+        amount: 6,
+        currency: "USD",
+        eventType: "card_purchase",
+        accountId: null,
+        counterpartyAccountId: null,
+        cardId: "card-visa",
+      },
+      {
+        id: "txn-sep-payroll",
+        date: "2026-09-03",
+        description: "Payroll — Acme Corp",
+        amount: 20,
+        currency: "USD",
+        eventType: "income",
+        accountId: "acc-checking",
+        counterpartyAccountId: null,
+        cardId: null,
+      },
+    ];
+
+    expect(
+      listTransactions(
+        source,
+        {
+          kind: "party",
+          id: "card-visa",
+          eventType: "card_purchase",
+          query: "dinner",
+          year: 2026,
+          month: 9,
+        },
+        { accounts, cards },
+      ).map((tx) => tx.id),
+    ).toEqual(["txn-sep-dinner"]);
+
+    expect(
+      listTransactions(
+        source,
+        { kind: "all", query: "everyday" },
+        { accounts, cards },
+      ).map((tx) => tx.id),
+    ).toEqual(["txn-sep-payroll"]);
+
+    expect(
+      listTransactions(source, { kind: "all", year: 2025, month: 1 }),
+    ).toEqual([]);
+  });
+
+  it("keeps newest-first order after search reduces the set", () => {
+    const listed = listTransactions(
+      [
+        {
+          id: "txn-a",
+          date: "2026-09-01",
+          description: "Metro older",
+          amount: 1,
+          currency: "USD",
+          eventType: "expense",
+          accountId: "acc-checking",
+          counterpartyAccountId: null,
+          cardId: null,
+        },
+        {
+          id: "txn-c",
+          date: "2026-09-03",
+          description: "Metro newer",
+          amount: 1,
+          currency: "USD",
+          eventType: "expense",
+          accountId: "acc-checking",
+          counterpartyAccountId: null,
+          cardId: null,
+        },
+        {
+          id: "txn-skip",
+          date: "2026-09-04",
+          description: "Groceries",
+          amount: 1,
+          currency: "USD",
+          eventType: "expense",
+          accountId: "acc-checking",
+          counterpartyAccountId: null,
+          cardId: null,
+        },
+      ],
+      { kind: "all", query: "metro" },
+    );
+
+    expect(listed.map((tx) => tx.id)).toEqual(["txn-c", "txn-a"]);
+  });
+});
+
+describe("transaction list empty reason", () => {
+  it("distinguishes stored, period, and search/filter emptiness", () => {
+    expect(transactionListEmptyReason(0, 0, 0, false)).toBe("none-stored");
+    expect(transactionListEmptyReason(4, 0, 0, true)).toBe("none-in-period");
+    expect(transactionListEmptyReason(4, 2, 0, true)).toBe("none-match");
+    expect(transactionListEmptyReason(4, 2, 1, false)).toBeNull();
   });
 });
