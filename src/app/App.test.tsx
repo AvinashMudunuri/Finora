@@ -19,11 +19,11 @@ describe("Finora app navigation", () => {
     expect(screen.getByRole("region", { name: "Your cards" })).toBeInTheDocument();
   });
 
-  it("opens a selected card from the dashboard tile", async () => {
+  it("opens a selected card from dashboard attention", async () => {
     const user = userEvent.setup();
     render(<App />);
 
-    await user.click(screen.getByRole("button", { name: "View Visa Rewards" }));
+    await user.click(screen.getByRole("button", { name: "Inspect card" }));
 
     const detail = screen.getByRole("region", { name: "Visa Rewards" });
     expect(within(detail).getByText("Northlake Bank")).toBeInTheDocument();
@@ -55,12 +55,12 @@ describe("Finora app navigation", () => {
     expect(screen.getByRole("list", { name: "Transaction list" })).toBeInTheDocument();
   });
 
-  it("opens a selected transaction from the dashboard", async () => {
+  it("opens a selected transaction from dashboard net-worth evidence", async () => {
     const user = userEvent.setup();
     render(<App />);
 
     await user.click(
-      screen.getByRole("button", { name: "View Payroll — Acme Corp" }),
+      screen.getByRole("button", { name: "Inspect Payroll — Acme Corp" }),
     );
 
     const detail = screen.getByRole("region", { name: "Payroll — Acme Corp" });
@@ -72,7 +72,7 @@ describe("Finora app navigation", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    await user.click(screen.getByRole("button", { name: "View Visa Rewards" }));
+    await user.click(screen.getByRole("button", { name: "Inspect card" }));
     await user.click(
       screen.getByRole("button", { name: "View Dinner — Riverview" }),
     );
@@ -97,13 +97,11 @@ describe("Finora app navigation", () => {
     ).toBeInTheDocument();
   });
 
-  it("opens a selected account from the dashboard tile", async () => {
+  it("opens a selected account from the dashboard accounts path", async () => {
     const user = userEvent.setup();
     render(<App />);
 
-    await user.click(
-      screen.getByRole("button", { name: "View Everyday Checking" }),
-    );
+    await user.click(screen.getByRole("button", { name: "View accounts" }));
 
     const detail = screen.getByRole("region", { name: "Everyday Checking" });
     expect(within(detail).getByText("Bank")).toBeInTheDocument();

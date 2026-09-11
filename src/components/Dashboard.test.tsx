@@ -65,75 +65,62 @@ describe("Finora dashboard", () => {
     expect(screen.getByRole("img", { name: "Finora" })).toBeInTheDocument();
   });
 
-  it("shows account and card positions from the fixture data", () => {
+  it("tells the position, change, attention, and inspect story without dumping accounts", () => {
     renderDashboard();
 
-    const accounts = screen.getByRole("region", { name: "Accounts" });
-
-    expect(within(accounts).getByText("Everyday Checking")).toBeInTheDocument();
-    expect(within(accounts).getByText("Emergency Savings")).toBeInTheDocument();
-    expect(within(accounts).getAllByText("Cash").length).toBeGreaterThan(0);
-    expect(within(accounts).getByText("Investment Account")).toBeInTheDocument();
-    expect(within(accounts).getByText("Visa Rewards")).toBeInTheDocument();
-    expect(within(accounts).getAllByText("Bank").length).toBeGreaterThan(0);
-    expect(within(accounts).getByText("Investment")).toBeInTheDocument();
-    expect(within(accounts).getAllByText("Credit Card").length).toBeGreaterThan(0);
-
-    for (const account of fixtureAccounts) {
-      expect(
-        within(accounts).getByText(formatCurrency(account.balance, account.currency)),
-      ).toBeInTheDocument();
-    }
-
-    for (const card of fixtureCards) {
-      expect(
-        within(accounts).getByText(
-          formatCurrency(card.outstandingBalance, card.currency),
-        ),
-      ).toBeInTheDocument();
-    }
+    expect(screen.getByRole("region", { name: "Overview" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "What changed" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Attention" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Inspect" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Accounts" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "Recent transactions" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Everyday Checking")).not.toBeInTheDocument();
+    expect(screen.queryByText("Emergency Savings")).not.toBeInTheDocument();
+    expect(screen.queryByText("Investment Account")).not.toBeInTheDocument();
   });
 
-  it("shows calculated net worth, monthly spending, and card utilization", () => {
+  it("shows calculated net worth and monthly spending from existing calculations", () => {
     renderDashboard();
 
     const overview = screen.getByRole("region", { name: "Overview" });
     const worth = calculateNetWorth(fixtureAccounts, fixtureCards);
+    const period = latestActivityMonth(fixtureTransactions);
+    const flow = calculateMonthlySavings(
+      fixtureTransactions,
+      period!.year,
+      period!.month,
+    );
+    const monthly = screen.getByRole("region", { name: "Monthly flow" });
 
     expect(
       within(overview).getByText(formatCurrency(worth.netWorth, worth.currency)),
     ).toBeInTheDocument();
     expect(within(overview).queryByText("$2,049.61")).not.toBeInTheDocument();
-
-    const accounts = screen.getByRole("region", { name: "Accounts" });
-    expect(within(accounts).getByText(`${formatUtilization(1842.19 / 5000)} utilized · USD`)).toBeInTheDocument();
-    expect(within(accounts).getByText(`${formatUtilization(326.4 / 2500)} utilized · USD`)).toBeInTheDocument();
+    expect(
+      within(monthly).getByText(formatCurrency(flow.spending, flow.currency)),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(`${formatUtilization(1842.19 / 5000)} utilized · USD`)).not.toBeInTheDocument();
   });
 
-  it("lists recent transactions with description, party, date, amount, and type", () => {
+  it("keeps transaction evidence on existing attention inspect paths", () => {
     renderDashboard();
 
-    const transactions = screen.getByRole("region", { name: "Recent transactions" });
-    const paycheck = within(transactions)
-      .getByText("Payroll — Acme Corp")
-      .closest("li");
-    const groceries = within(transactions)
-      .getByText("Whole Foods Market")
-      .closest("li");
-
-    expect(paycheck).not.toBeNull();
-    expect(groceries).not.toBeNull();
-    expect(within(paycheck!).getByText("Everyday Checking")).toBeInTheDocument();
-    expect(within(paycheck!).getByText("Sep 3, 2026")).toBeInTheDocument();
-    expect(within(paycheck!).getByText("+$3,200.00")).toBeInTheDocument();
-    expect(within(paycheck!).getByText("Inflow")).toBeInTheDocument();
-    expect(within(groceries!).getByText("-$87.42")).toBeInTheDocument();
-    expect(within(groceries!).getByText("Outflow")).toBeInTheDocument();
+    const evidence = within(attentionArticle("Net worth increased")).getByRole(
+      "list",
+      { name: "Net worth change evidence" },
+    );
+    expect(within(evidence).getByText("Payroll — Acme Corp")).toBeInTheDocument();
+    expect(within(evidence).getByText("Whole Foods Market")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "Recent transactions" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Inflow")).not.toBeInTheDocument();
+    expect(screen.queryByText("Outflow")).not.toBeInTheDocument();
   });
 
   it("formats transaction amounts from their financial event", () => {
-    renderDashboard();
-
     const paycheck = fixtureTransactions.find(
       (tx) => tx.description === "Payroll — Acme Corp",
     );
@@ -145,31 +132,32 @@ describe("Finora dashboard", () => {
     expect(groceries).toBeDefined();
     expect(formatCurrency(signedAmount(paycheck!), "USD", true)).toBe("+$3,200.00");
     expect(formatCurrency(signedAmount(groceries!), "USD", true)).toBe("-$87.42");
-    const recent = screen.getByRole("region", { name: "Recent transactions" });
-    expect(within(recent).getByText("+$3,200.00")).toBeInTheDocument();
-    expect(within(recent).getByText("-$87.42")).toBeInTheDocument();
   });
 
-  it("filters recent transactions by account or card", async () => {
+  it("opens inspect paths when callbacks are provided", async () => {
     const user = userEvent.setup();
-    renderDashboard();
+    const onShowTransactions = vi.fn();
+    const onShowInsights = vi.fn();
 
-    await user.click(screen.getByRole("button", { name: "Emergency Savings" }));
+    render(
+      <Dashboard
+        accounts={fixtureAccounts}
+        cards={fixtureCards}
+        transactions={fixtureTransactions}
+        onShowTransactions={onShowTransactions}
+        onShowInsights={onShowInsights}
+      />,
+    );
 
-    const transactions = screen.getByRole("region", { name: "Recent transactions" });
-    expect(within(transactions).getByText("Interest credit")).toBeInTheDocument();
-    expect(within(transactions).queryByText("Payroll — Acme Corp")).not.toBeInTheDocument();
-    expect(within(transactions).queryByText("Dinner — Riverview")).not.toBeInTheDocument();
+    const inspect = screen.getByRole("region", { name: "Inspect" });
+    await user.click(within(inspect).getByRole("button", { name: "View transactions" }));
+    await user.click(within(inspect).getByRole("button", { name: "View insights" }));
 
-    await user.click(screen.getByRole("button", { name: "Visa Rewards" }));
-    expect(within(transactions).getByText("Dinner — Riverview")).toBeInTheDocument();
-    expect(within(transactions).queryByText("Payroll — Acme Corp")).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "All accounts" }));
-    expect(within(transactions).getByText("Payroll — Acme Corp")).toBeInTheDocument();
+    expect(onShowTransactions).toHaveBeenCalledTimes(1);
+    expect(onShowInsights).toHaveBeenCalledTimes(1);
   });
 
-  it("renders accounts and transactions from the provided dataset", () => {
+  it("renders the provided dataset without fixture names or a transaction browser", () => {
     render(
       <Dashboard
         accounts={[
@@ -198,34 +186,58 @@ describe("Finora dashboard", () => {
       />,
     );
 
-    expect(screen.getAllByText("Harbor Checking").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("$100.00").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Harbor Payroll").length).toBeGreaterThan(0);
+    const overview = screen.getByRole("region", { name: "Overview" });
+    expect(within(overview).getAllByText("$100.00").length).toBeGreaterThan(0);
+    expect(screen.getByText("Harbor Payroll")).toBeInTheDocument();
     expect(screen.queryByText("Everyday Checking")).not.toBeInTheDocument();
     expect(screen.queryByText("Payroll — Acme Corp")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "Recent transactions" }),
+    ).not.toBeInTheDocument();
   });
 
-  it("shows an empty state when a filter has no transactions", async () => {
-    const user = userEvent.setup();
-    const emptyAccount = {
-      id: "acc-empty",
-      name: "New Brokerage",
-      type: "investment" as const,
-      balance: 0,
-      currency: "USD" as const,
-    };
+  it("shows first-class net worth and spending change from existing calculations", () => {
+    renderDashboard();
 
-    render(
-      <Dashboard
-        accounts={[...fixtureAccounts, emptyAccount]}
-        cards={fixtureCards}
-        transactions={fixtureTransactions}
-      />,
+    const change = screen.getByRole("region", { name: "What changed" });
+    const netWorth = calculateNetWorthChange(
+      fixtureAccounts,
+      fixtureCards,
+      fixtureTransactions,
     );
+    const spending = calculateSpendingChange(fixtureTransactions);
 
-    await user.click(screen.getByRole("button", { name: "New Brokerage" }));
-
-    expect(screen.getByText("No recent transactions for this account.")).toBeInTheDocument();
+    expect(netWorth).not.toBeNull();
+    expect(spending).not.toBeNull();
+    expect(within(change).getByRole("heading", { name: "Net worth change" })).toBeInTheDocument();
+    expect(within(change).getByRole("heading", { name: "Spending change" })).toBeInTheDocument();
+    expect(
+      within(change).getByText(
+        formatCurrency(netWorth!.currentNetWorth, netWorth!.currency),
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(change).getByText(
+        formatCurrency(netWorth!.previousNetWorth, netWorth!.currency),
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(change).getByText(
+        formatCurrency(netWorth!.absoluteChange, netWorth!.currency, true),
+      ),
+    ).toBeInTheDocument();
+    expect(within(change).getByText("Increased")).toBeInTheDocument();
+    expect(
+      within(change).getByText(
+        formatCurrency(spending!.currentSpending, spending!.currency),
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(change).getByText(
+        formatCurrency(spending!.previousSpending, spending!.currency),
+      ),
+    ).toBeInTheDocument();
+    expect(within(change).getByText("Decreased")).toBeInTheDocument();
   });
 
   it("shows assets, liabilities, and the asset breakdown from existing calculations", () => {
@@ -734,6 +746,17 @@ describe("Finora dashboard", () => {
       screen.queryByRole("list", { name: "Spending change drivers" }),
     ).not.toBeInTheDocument();
     expect(screen.queryByText("Largest spending in")).not.toBeInTheDocument();
+    expect(
+      within(screen.getByRole("region", { name: "What changed" })).getByText(
+        "Unchanged",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("region", { name: "What changed" })).getByRole(
+        "heading",
+        { name: "Spending change" },
+      ),
+    ).toBeInTheDocument();
   });
 
   it("does not render a spending change insight when there is no activity month", () => {
@@ -798,17 +821,17 @@ describe("Finora dashboard", () => {
     expect(onOpenTransaction).toHaveBeenCalledWith("txn-004");
   });
 
-  it("shows current, previous, absolute change, and direction on the overview net-worth card", () => {
+  it("shows current, previous, absolute change, and direction in What changed", () => {
     renderDashboard();
 
-    const overview = screen.getByRole("region", { name: "Overview" });
+    const region = screen.getByRole("region", { name: "What changed" });
     const change = calculateNetWorthChange(
       fixtureAccounts,
       fixtureCards,
       fixtureTransactions,
     );
-    const netWorthCard = within(overview)
-      .getByRole("heading", { name: "Net worth" })
+    const netWorthCard = within(region)
+      .getByRole("heading", { name: "Net worth change" })
       .closest("article");
 
     expect(change).not.toBeNull();
@@ -918,9 +941,9 @@ describe("Finora dashboard", () => {
       />,
     );
 
-    const overview = screen.getByRole("region", { name: "Overview" });
+    const region = screen.getByRole("region", { name: "What changed" });
     expect(change?.direction).toBe("unchanged");
-    expect(within(overview).getByText("Unchanged")).toBeInTheDocument();
+    expect(within(region).getByText("Unchanged")).toBeInTheDocument();
     expect(
       screen.queryByRole("heading", { name: "Net worth unchanged" }),
     ).not.toBeInTheDocument();
@@ -943,9 +966,12 @@ describe("Finora dashboard", () => {
       />,
     );
 
-    const overview = screen.getByRole("region", { name: "Overview" });
+    const region = screen.getByRole("region", { name: "What changed" });
     expect(
-      within(overview).getByText("No recorded activity month to compare."),
+      within(region).getByText("No recorded activity month to compare."),
+    ).toBeInTheDocument();
+    expect(
+      within(region).getByText("No stored months to compare spending."),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("heading", { name: "Net worth increased" }),
@@ -1105,20 +1131,21 @@ describe("Finora dashboard", () => {
     expect(onOpenCard).toHaveBeenCalledWith("card-visa");
   });
 
-  it("shows stored payment status and minimum payment on dashboard card tiles", () => {
+  it("keeps stored payment status on the existing attention representation", () => {
     renderDashboard();
 
-    const accounts = screen.getByRole("region", { name: "Accounts" });
-    for (const card of fixtureCards) {
-      const tile = within(accounts)
-        .getByRole("heading", { name: card.name })
-        .closest("li");
-      expect(tile).not.toBeNull();
-      expect(tile!.textContent).toContain(paymentStatusLabel(card.paymentStatus));
-      expect(tile!.textContent).toContain(
-        `min ${formatCurrency(card.minimumPayment, card.currency)}`,
-      );
-    }
+    const insight = calculateCardPaymentAttention(fixtureCards);
+    const attentionCard = fixtureCards.find((card) => card.id === insight?.cardId);
+    const region = attentionArticle("Card payment due");
+
+    expect(insight?.paymentStatus).toBe("due");
+    expect(region.textContent).toContain(
+      `${attentionCard!.name} · ${paymentStatusLabel(insight!.paymentStatus)}`,
+    );
+    expect(region.textContent).toContain(
+      `Minimum payment: ${formatCurrency(insight!.minimumPayment, attentionCard!.currency)}`,
+    );
+    expect(screen.queryByText(`min ${formatCurrency(insight!.minimumPayment, attentionCard!.currency)}`)).not.toBeInTheDocument();
   });
 
   it("shows historical net worth for stored activity months only", () => {
