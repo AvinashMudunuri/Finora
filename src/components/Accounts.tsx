@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import {
   calculateAccountPeriodActivity,
   isAssetAccount,
@@ -15,7 +15,9 @@ import {
   signedAmount,
   transactionContext,
 } from "../domain/finance.ts";
-import type { Account, Card, Transaction } from "../domain/types.ts";
+import type { Account, AccountDraft, Card, Transaction } from "../domain/types.ts";
+import { ACCOUNT_TYPES } from "../domain/types.ts";
+import type { EntityMutationResult, FieldErrors } from "../domain/validate.ts";
 import { SiteHeader } from "./SiteHeader.tsx";
 
 export type AccountsProps = {
@@ -24,6 +26,11 @@ export type AccountsProps = {
   transactions: Transaction[];
   selectedAccountId: string;
   onSelectAccount: (accountId: string) => void;
+  onCreateAccount?: (draft: AccountDraft) => EntityMutationResult<Account>;
+  onUpdateAccount?: (
+    id: string,
+    draft: AccountDraft,
+  ) => EntityMutationResult<Account>;
   onShowDashboard?: () => void;
   onShowCards?: () => void;
   onShowTransactions?: () => void;
@@ -38,6 +45,8 @@ export function Accounts({
   transactions,
   selectedAccountId,
   onSelectAccount,
+  onCreateAccount,
+  onUpdateAccount,
   onShowDashboard,
   onShowCards,
   onShowTransactions,
@@ -150,6 +159,15 @@ export function Accounts({
             </ul>
           )}
         </section>
+
+        {onCreateAccount || onUpdateAccount ? (
+          <AccountManagement
+            accounts={accounts}
+            selectedAccount={selectedAccount}
+            onCreateAccount={onCreateAccount}
+            onUpdateAccount={onUpdateAccount}
+          />
+        ) : null}
 
         {selectedAccount ? (
           <AccountDetail
@@ -342,6 +360,225 @@ function AccountDetail({
           </ol>
         )}
       </section>
+    </section>
+  );
+}
+
+type AccountFormMode = "closed" | "create" | "edit";
+
+function emptyAccountDraft(): AccountDraft {
+  return {
+    name: "",
+    type: "bank",
+    balance: "",
+  };
+}
+
+function draftFromAccount(account: Account): AccountDraft {
+  return {
+    name: account.name,
+    type: account.type,
+    balance: String(account.balance),
+  };
+}
+
+function AccountManagement({
+  accounts,
+  selectedAccount,
+  onCreateAccount,
+  onUpdateAccount,
+}: {
+  accounts: Account[];
+  selectedAccount: Account | null;
+  onCreateAccount?: (draft: AccountDraft) => EntityMutationResult<Account>;
+  onUpdateAccount?: (
+    id: string,
+    draft: AccountDraft,
+  ) => EntityMutationResult<Account>;
+}) {
+  const [mode, setMode] = useState<AccountFormMode>("closed");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<AccountDraft>(emptyAccountDraft);
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const [notice, setNotice] = useState("");
+  const editingAccount =
+    accounts.find((account) => account.id === editingId) ?? selectedAccount;
+
+  const headingId = "account-management-heading";
+  const canCreate = Boolean(onCreateAccount);
+  const canEdit = Boolean(onUpdateAccount && selectedAccount);
+
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const result =
+      mode === "create"
+        ? onCreateAccount?.(draft)
+        : editingId
+          ? onUpdateAccount?.(editingId, draft)
+          : undefined;
+
+    if (!result) {
+      return;
+    }
+
+    if (!result.ok) {
+      setErrors(result.errors);
+      setNotice("");
+      return;
+    }
+
+    setErrors({});
+    setNotice(mode === "create" ? "Account created." : "Account updated.");
+    setMode("closed");
+    setEditingId(null);
+    setDraft(emptyAccountDraft());
+  };
+
+  return (
+    <section className="panel" aria-labelledby={headingId}>
+      <div className="panel-header">
+        <h2 id={headingId}>Manage accounts</h2>
+        <p className="panel-copy">
+          Create or edit the bank, cash, and investment positions already
+          represented in this snapshot. Existing transactions keep their account
+          relationships.
+        </p>
+      </div>
+
+      {notice ? (
+        <p className="notice-success" role="status">
+          {notice}
+        </p>
+      ) : null}
+
+      <div className="form-actions">
+        {canCreate ? (
+          <button
+            type="button"
+            className="form-action"
+            onClick={() => {
+              setMode("create");
+              setEditingId(null);
+              setDraft(emptyAccountDraft());
+              setErrors({});
+              setNotice("");
+            }}
+          >
+            Add account
+          </button>
+        ) : null}
+        {canEdit ? (
+          <button
+            type="button"
+            className="form-action-secondary"
+            onClick={() => {
+              setMode("edit");
+              setEditingId(selectedAccount!.id);
+              setDraft(draftFromAccount(selectedAccount!));
+              setErrors({});
+              setNotice("");
+            }}
+          >
+            Edit this account
+          </button>
+        ) : null}
+      </div>
+
+      {mode !== "closed" ? (
+        <form className="entity-form" onSubmit={submit} noValidate>
+          <p className="panel-copy">
+            {mode === "create"
+              ? "New accounts receive a generated identifier. Currency stays USD."
+              : `Editing ${editingAccount?.name ?? "this account"} keeps its identifier (${editingAccount?.id ?? ""}).`}
+          </p>
+          {errors.form ? (
+            <p className="field-error" role="alert">
+              {errors.form}
+            </p>
+          ) : null}
+          <div className="field">
+            <label htmlFor="account-name">Account name</label>
+            <input
+              id="account-name"
+              name="account-name"
+              value={String(draft.name)}
+              aria-invalid={Boolean(errors.name)}
+              aria-describedby={errors.name ? "account-name-error" : undefined}
+              onChange={(event) => {
+                setDraft({ ...draft, name: event.target.value });
+              }}
+            />
+            {errors.name ? (
+              <p id="account-name-error" className="field-error" role="alert">
+                {errors.name}
+              </p>
+            ) : null}
+          </div>
+          <fieldset className="field">
+            <legend>Account type</legend>
+            <div className="choice-row">
+              {ACCOUNT_TYPES.map((type) => (
+                <label key={type} className="choice">
+                  <input
+                    type="radio"
+                    name="account-type"
+                    value={type}
+                    checked={draft.type === type}
+                    onChange={() => {
+                      setDraft({ ...draft, type });
+                    }}
+                  />
+                  {accountTypeLabel(type)}
+                </label>
+              ))}
+            </div>
+            {errors.type ? (
+              <p className="field-error" role="alert">
+                {errors.type}
+              </p>
+            ) : null}
+          </fieldset>
+          <div className="field">
+            <label htmlFor="account-balance">Account balance</label>
+            <input
+              id="account-balance"
+              name="account-balance"
+              inputMode="decimal"
+              value={String(draft.balance)}
+              aria-invalid={Boolean(errors.balance)}
+              aria-describedby={
+                errors.balance ? "account-balance-error" : undefined
+              }
+              onChange={(event) => {
+                setDraft({ ...draft, balance: event.target.value });
+              }}
+            />
+            {errors.balance ? (
+              <p id="account-balance-error" className="field-error" role="alert">
+                {errors.balance}
+              </p>
+            ) : null}
+          </div>
+          <div className="form-actions">
+            <button type="submit" className="form-action">
+              {mode === "create" ? "Save new account" : "Save account changes"}
+            </button>
+            <button
+              type="button"
+              className="form-action-secondary"
+              onClick={() => {
+                setMode("closed");
+                setEditingId(null);
+                setErrors({});
+              }}
+            >
+              Cancel account form
+            </button>
+          </div>
+        </form>
+      ) : accounts.length === 0 ? (
+        <p className="empty-state">Add an account to start this snapshot.</p>
+      ) : null}
     </section>
   );
 }

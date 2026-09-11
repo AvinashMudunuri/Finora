@@ -12,6 +12,10 @@ import {
   fixtureTransactions,
   loadAppCards,
   loadAppTransactions,
+  loadManagedLedger,
+  MANAGED_LEDGER_STORAGE_KEY,
+  saveManagedLedger,
+  usesManagedLedger,
   transactionsWithNeutralSeptemberNetWorth,
   transactionsWithoutSeptemberIncome,
 } from "./fixtures.ts";
@@ -268,5 +272,88 @@ describe("e2e net-worth dataset mapping", () => {
     expect(import.meta.env.MODE).not.toBe("e2e-nw-decreased");
     expect(import.meta.env.MODE).not.toBe("e2e-nw-unchanged");
     expect(loadAppTransactions()).toEqual(fixtureTransactions);
+  });
+});
+
+describe("managed ledger persistence", () => {
+  it("falls back to fixtures when storage is empty or disabled", () => {
+    const memory = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => memory.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        memory.set(key, value);
+      },
+    };
+
+    expect(
+      loadManagedLedger(fixtureTransactions, null, {
+        accounts: fixtureAccounts,
+        cards: fixtureCards,
+      }),
+    ).toEqual({ accounts: fixtureAccounts, cards: fixtureCards });
+    expect(
+      loadManagedLedger(fixtureTransactions, storage, {
+        accounts: fixtureAccounts,
+        cards: fixtureCards,
+      }),
+    ).toEqual({ accounts: fixtureAccounts, cards: fixtureCards });
+    expect(usesManagedLedger("e2e-no-attention")).toBe(false);
+    expect(usesManagedLedger("test")).toBe(true);
+  });
+
+  it("round-trips a valid overlay without changing fixture modules", () => {
+    const memory = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => memory.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        memory.set(key, value);
+      },
+    };
+    const accounts = [
+      ...fixtureAccounts,
+      {
+        id: "acc-1",
+        name: "Travel Fund",
+        type: "bank" as const,
+        balance: 500,
+        currency: "USD" as const,
+      },
+    ];
+
+    saveManagedLedger(storage, { accounts, cards: fixtureCards }, fixtureTransactions);
+
+    expect(JSON.parse(memory.get(MANAGED_LEDGER_STORAGE_KEY) ?? "{}").version).toBe(1);
+    expect(
+      loadManagedLedger(fixtureTransactions, storage, {
+        accounts: fixtureAccounts,
+        cards: fixtureCards,
+      }).accounts.map((account) => account.name),
+    ).toContain("Travel Fund");
+    expect(fixtureAccounts.map((account) => account.name)).not.toContain("Travel Fund");
+  });
+
+  it("ignores a stored overlay that would invalidate existing transactions", () => {
+    const memory = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => memory.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        memory.set(key, value);
+      },
+    };
+    storage.setItem(
+      MANAGED_LEDGER_STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        accounts: fixtureAccounts.filter((account) => account.id !== "acc-checking"),
+        cards: fixtureCards,
+      }),
+    );
+
+    expect(
+      loadManagedLedger(fixtureTransactions, storage, {
+        accounts: fixtureAccounts,
+        cards: fixtureCards,
+      }),
+    ).toEqual({ accounts: fixtureAccounts, cards: fixtureCards });
   });
 });

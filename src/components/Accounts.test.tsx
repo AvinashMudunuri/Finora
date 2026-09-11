@@ -17,7 +17,7 @@ import {
   formatMonth,
 } from "../domain/finance.ts";
 import type { Account } from "../domain/types.ts";
-import { Accounts } from "./Accounts.tsx";
+import { Accounts, type AccountsProps } from "./Accounts.tsx";
 
 function renderAccounts(
   overrides: {
@@ -25,6 +25,8 @@ function renderAccounts(
     selectedAccountId?: string;
     onSelectAccount?: (accountId: string) => void;
     onOpenTransaction?: (transactionId: string) => void;
+    onCreateAccount?: AccountsProps["onCreateAccount"];
+    onUpdateAccount?: AccountsProps["onUpdateAccount"];
     transactions?: typeof fixtureTransactions;
   } = {},
 ) {
@@ -39,6 +41,8 @@ function renderAccounts(
       selectedAccountId={selectedAccountId}
       onSelectAccount={overrides.onSelectAccount ?? (() => undefined)}
       onOpenTransaction={overrides.onOpenTransaction}
+      onCreateAccount={overrides.onCreateAccount}
+      onUpdateAccount={overrides.onUpdateAccount}
     />,
   );
 }
@@ -243,5 +247,85 @@ describe("Finora account detail", () => {
     expect(
       within(transactions).queryByText("Payroll — Acme Corp"),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("Finora account management", () => {
+  it("creates a valid account through the management form", async () => {
+    const user = userEvent.setup();
+    const onCreateAccount = vi.fn((draft) => ({
+      ok: true as const,
+      value: {
+        id: "acc-1",
+        name: String(draft.name),
+        type: "bank" as const,
+        balance: Number(draft.balance),
+        currency: "USD" as const,
+      },
+    }));
+
+    renderAccounts({
+      onCreateAccount,
+    });
+
+    await user.click(screen.getByRole("button", { name: "Add account" }));
+    await user.type(screen.getByLabelText("Account name"), "Travel Fund");
+    await user.type(screen.getByLabelText("Account balance"), "500");
+    await user.click(screen.getByRole("button", { name: "Save new account" }));
+
+    expect(onCreateAccount).toHaveBeenCalledWith({
+      name: "Travel Fund",
+      type: "bank",
+      balance: "500",
+    });
+    expect(screen.getByRole("status")).toHaveTextContent("Account created.");
+  });
+
+  it("shows field validation when account creation is rejected", async () => {
+    const user = userEvent.setup();
+    renderAccounts({
+      onCreateAccount: () => ({
+        ok: false,
+        errors: { name: "Account name is required." },
+      }),
+    });
+
+    await user.click(screen.getByRole("button", { name: "Add account" }));
+    await user.click(screen.getByRole("button", { name: "Save new account" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Account name is required.");
+    expect(screen.getByLabelText("Account name")).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("edits the selected account without asking the user for a new identifier", async () => {
+    const user = userEvent.setup();
+    const onUpdateAccount = vi.fn((_id, draft) => ({
+      ok: true as const,
+      value: {
+        id: "acc-checking",
+        name: String(draft.name),
+        type: "bank" as const,
+        balance: Number(draft.balance),
+        currency: "USD" as const,
+      },
+    }));
+
+    renderAccounts({
+      selectedAccountId: "acc-checking",
+      onUpdateAccount,
+    });
+
+    await user.click(screen.getByRole("button", { name: "Edit this account" }));
+    const name = screen.getByLabelText("Account name");
+    await user.clear(name);
+    await user.type(name, "Primary Checking");
+    await user.click(screen.getByRole("button", { name: "Save account changes" }));
+
+    expect(onUpdateAccount).toHaveBeenCalledWith("acc-checking", {
+      name: "Primary Checking",
+      type: "bank",
+      balance: "4286.47",
+    });
+    expect(screen.getByRole("status")).toHaveTextContent("Account updated.");
   });
 });

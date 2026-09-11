@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import {
   calculateCardUtilization,
   type CardUtilizationResult,
@@ -13,7 +13,9 @@ import {
   transactionDirection,
   transactionTypeLabel,
 } from "../domain/finance.ts";
-import type { Card, Transaction } from "../domain/types.ts";
+import type { Card, CardDraft, Transaction } from "../domain/types.ts";
+import { CARD_PAYMENT_STATUSES } from "../domain/types.ts";
+import type { EntityMutationResult, FieldErrors } from "../domain/validate.ts";
 import { SiteHeader } from "./SiteHeader.tsx";
 
 export type CardsProps = {
@@ -21,6 +23,8 @@ export type CardsProps = {
   transactions: Transaction[];
   selectedCardId: string;
   onSelectCard: (cardId: string) => void;
+  onCreateCard?: (draft: CardDraft) => EntityMutationResult<Card>;
+  onUpdateCard?: (id: string, draft: CardDraft) => EntityMutationResult<Card>;
   onShowDashboard?: () => void;
   onShowAccounts?: () => void;
   onShowTransactions?: () => void;
@@ -34,6 +38,8 @@ export function Cards({
   transactions,
   selectedCardId,
   onSelectCard,
+  onCreateCard,
+  onUpdateCard,
   onShowDashboard,
   onShowAccounts,
   onShowTransactions,
@@ -134,6 +140,15 @@ export function Cards({
             </ul>
           )}
         </section>
+
+        {onCreateCard || onUpdateCard ? (
+          <CardManagement
+            cards={cards}
+            selectedCard={selectedCard}
+            onCreateCard={onCreateCard}
+            onUpdateCard={onUpdateCard}
+          />
+        ) : null}
 
         {selectedCard && selectedUtilization ? (
           <CardDetail
@@ -303,5 +318,353 @@ function CardFacts({
         </div>
       ) : null}
     </dl>
+  );
+}
+
+type CardFormMode = "closed" | "create" | "edit";
+
+function emptyCardDraft(): CardDraft {
+  return {
+    name: "",
+    issuer: "",
+    creditLimit: "",
+    outstandingBalance: "",
+    statementPeriodEnd: "",
+    paymentDueDate: "",
+    minimumPayment: "",
+    paymentStatus: "current",
+  };
+}
+
+function draftFromCard(card: Card): CardDraft {
+  return {
+    name: card.name,
+    issuer: card.issuer,
+    creditLimit: String(card.creditLimit),
+    outstandingBalance: String(card.outstandingBalance),
+    statementPeriodEnd: card.statementPeriodEnd,
+    paymentDueDate: card.paymentDueDate,
+    minimumPayment: String(card.minimumPayment),
+    paymentStatus: card.paymentStatus,
+  };
+}
+
+function previewAvailableCredit(draft: CardDraft): string | null {
+  const limit = Number(draft.creditLimit);
+  const outstanding = Number(draft.outstandingBalance);
+  if (!Number.isFinite(limit) || !Number.isFinite(outstanding)) {
+    return null;
+  }
+  return formatCurrency(limit - outstanding, "USD");
+}
+
+function CardManagement({
+  cards,
+  selectedCard,
+  onCreateCard,
+  onUpdateCard,
+}: {
+  cards: Card[];
+  selectedCard: Card | null;
+  onCreateCard?: (draft: CardDraft) => EntityMutationResult<Card>;
+  onUpdateCard?: (id: string, draft: CardDraft) => EntityMutationResult<Card>;
+}) {
+  const [mode, setMode] = useState<CardFormMode>("closed");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<CardDraft>(emptyCardDraft);
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const [notice, setNotice] = useState("");
+  const availableCredit = previewAvailableCredit(draft);
+  const editingCard = cards.find((card) => card.id === editingId) ?? selectedCard;
+
+  const headingId = "card-management-heading";
+  const canCreate = Boolean(onCreateCard);
+  const canEdit = Boolean(onUpdateCard && selectedCard);
+
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const result =
+      mode === "create"
+        ? onCreateCard?.(draft)
+        : editingId
+          ? onUpdateCard?.(editingId, draft)
+          : undefined;
+
+    if (!result) {
+      return;
+    }
+
+    if (!result.ok) {
+      setErrors(result.errors);
+      setNotice("");
+      return;
+    }
+
+    setErrors({});
+    setNotice(mode === "create" ? "Card created." : "Card updated.");
+    setMode("closed");
+    setEditingId(null);
+    setDraft(emptyCardDraft());
+  };
+
+  return (
+    <section className="panel" aria-labelledby={headingId}>
+      <div className="panel-header">
+        <h2 id={headingId}>Manage cards</h2>
+        <p className="panel-copy">
+          Create or edit the cards already represented in this snapshot.
+          Available credit is calculated from the limit and outstanding balance.
+        </p>
+      </div>
+
+      {notice ? (
+        <p className="notice-success" role="status">
+          {notice}
+        </p>
+      ) : null}
+
+      <div className="form-actions">
+        {canCreate ? (
+          <button
+            type="button"
+            className="form-action"
+            onClick={() => {
+              setMode("create");
+              setEditingId(null);
+              setDraft(emptyCardDraft());
+              setErrors({});
+              setNotice("");
+            }}
+          >
+            Add card
+          </button>
+        ) : null}
+        {canEdit ? (
+          <button
+            type="button"
+            className="form-action-secondary"
+            onClick={() => {
+              setMode("edit");
+              setEditingId(selectedCard!.id);
+              setDraft(draftFromCard(selectedCard!));
+              setErrors({});
+              setNotice("");
+            }}
+          >
+            Edit this card
+          </button>
+        ) : null}
+      </div>
+
+      {mode !== "closed" ? (
+        <form className="entity-form" onSubmit={submit} noValidate>
+          <p className="panel-copy">
+            {mode === "create"
+              ? "New cards receive a generated identifier. Currency stays USD."
+              : `Editing ${editingCard?.name ?? "this card"} keeps its identifier (${editingCard?.id ?? ""}).`}
+          </p>
+          {errors.form ? (
+            <p className="field-error" role="alert">
+              {errors.form}
+            </p>
+          ) : null}
+          <div className="field">
+            <label htmlFor="card-name">Card name</label>
+            <input
+              id="card-name"
+              name="card-name"
+              value={draft.name}
+              aria-invalid={Boolean(errors.name)}
+              aria-describedby={errors.name ? "card-name-error" : undefined}
+              onChange={(event) => {
+                setDraft({ ...draft, name: event.target.value });
+              }}
+            />
+            {errors.name ? (
+              <p id="card-name-error" className="field-error" role="alert">
+                {errors.name}
+              </p>
+            ) : null}
+          </div>
+          <div className="field">
+            <label htmlFor="card-issuer">Card issuer</label>
+            <input
+              id="card-issuer"
+              name="card-issuer"
+              value={draft.issuer}
+              aria-invalid={Boolean(errors.issuer)}
+              aria-describedby={errors.issuer ? "card-issuer-error" : undefined}
+              onChange={(event) => {
+                setDraft({ ...draft, issuer: event.target.value });
+              }}
+            />
+            {errors.issuer ? (
+              <p id="card-issuer-error" className="field-error" role="alert">
+                {errors.issuer}
+              </p>
+            ) : null}
+          </div>
+          <div className="field-grid">
+            <div className="field">
+              <label htmlFor="card-credit-limit">Credit limit</label>
+              <input
+                id="card-credit-limit"
+                name="card-credit-limit"
+                inputMode="decimal"
+                value={String(draft.creditLimit)}
+                aria-invalid={Boolean(errors.creditLimit)}
+                aria-describedby={
+                  errors.creditLimit ? "card-credit-limit-error" : undefined
+                }
+                onChange={(event) => {
+                  setDraft({ ...draft, creditLimit: event.target.value });
+                }}
+              />
+              {errors.creditLimit ? (
+                <p id="card-credit-limit-error" className="field-error" role="alert">
+                  {errors.creditLimit}
+                </p>
+              ) : null}
+            </div>
+            <div className="field">
+              <label htmlFor="card-outstanding">Outstanding balance</label>
+              <input
+                id="card-outstanding"
+                name="card-outstanding"
+                inputMode="decimal"
+                value={String(draft.outstandingBalance)}
+                aria-invalid={Boolean(errors.outstandingBalance)}
+                aria-describedby={
+                  errors.outstandingBalance ? "card-outstanding-error" : undefined
+                }
+                onChange={(event) => {
+                  setDraft({ ...draft, outstandingBalance: event.target.value });
+                }}
+              />
+              {errors.outstandingBalance ? (
+                <p id="card-outstanding-error" className="field-error" role="alert">
+                  {errors.outstandingBalance}
+                </p>
+              ) : null}
+            </div>
+          </div>
+          <p className="panel-copy">
+            Available credit is calculated as credit limit minus outstanding
+            {availableCredit ? ` · ${availableCredit}` : "."}
+          </p>
+          <div className="field-grid">
+            <div className="field">
+              <label htmlFor="card-statement-end">Statement end</label>
+              <input
+                id="card-statement-end"
+                name="card-statement-end"
+                inputMode="numeric"
+                placeholder="YYYY-MM-DD"
+                value={draft.statementPeriodEnd}
+                aria-invalid={Boolean(errors.statementPeriodEnd)}
+                aria-describedby={
+                  errors.statementPeriodEnd
+                    ? "card-statement-end-error"
+                    : undefined
+                }
+                onChange={(event) => {
+                  setDraft({ ...draft, statementPeriodEnd: event.target.value });
+                }}
+              />
+              {errors.statementPeriodEnd ? (
+                <p id="card-statement-end-error" className="field-error" role="alert">
+                  {errors.statementPeriodEnd}
+                </p>
+              ) : null}
+            </div>
+            <div className="field">
+              <label htmlFor="card-due-date">Payment due date</label>
+              <input
+                id="card-due-date"
+                name="card-due-date"
+                inputMode="numeric"
+                placeholder="YYYY-MM-DD"
+                value={draft.paymentDueDate}
+                aria-invalid={Boolean(errors.paymentDueDate)}
+                aria-describedby={
+                  errors.paymentDueDate ? "card-due-date-error" : undefined
+                }
+                onChange={(event) => {
+                  setDraft({ ...draft, paymentDueDate: event.target.value });
+                }}
+              />
+              {errors.paymentDueDate ? (
+                <p id="card-due-date-error" className="field-error" role="alert">
+                  {errors.paymentDueDate}
+                </p>
+              ) : null}
+            </div>
+          </div>
+          <div className="field">
+            <label htmlFor="card-minimum-payment">Minimum payment</label>
+            <input
+              id="card-minimum-payment"
+              name="card-minimum-payment"
+              inputMode="decimal"
+              value={String(draft.minimumPayment)}
+              aria-invalid={Boolean(errors.minimumPayment)}
+              aria-describedby={
+                errors.minimumPayment ? "card-minimum-payment-error" : undefined
+              }
+              onChange={(event) => {
+                setDraft({ ...draft, minimumPayment: event.target.value });
+              }}
+            />
+            {errors.minimumPayment ? (
+              <p id="card-minimum-payment-error" className="field-error" role="alert">
+                {errors.minimumPayment}
+              </p>
+            ) : null}
+          </div>
+          <fieldset className="field">
+            <legend>Payment status</legend>
+            <div className="choice-row">
+              {CARD_PAYMENT_STATUSES.map((status) => (
+                <label key={status} className="choice">
+                  <input
+                    type="radio"
+                    name="card-payment-status"
+                    value={status}
+                    checked={draft.paymentStatus === status}
+                    onChange={() => {
+                      setDraft({ ...draft, paymentStatus: status });
+                    }}
+                  />
+                  {paymentStatusLabel(status)}
+                </label>
+              ))}
+            </div>
+            {errors.paymentStatus ? (
+              <p className="field-error" role="alert">
+                {errors.paymentStatus}
+              </p>
+            ) : null}
+          </fieldset>
+          <div className="form-actions">
+            <button type="submit" className="form-action">
+              {mode === "create" ? "Save new card" : "Save card changes"}
+            </button>
+            <button
+              type="button"
+              className="form-action-secondary"
+              onClick={() => {
+                setMode("closed");
+                setEditingId(null);
+                setErrors({});
+              }}
+            >
+              Cancel card form
+            </button>
+          </div>
+        </form>
+      ) : cards.length === 0 ? (
+        <p className="empty-state">Add a card to start this snapshot.</p>
+      ) : null}
+    </section>
   );
 }
