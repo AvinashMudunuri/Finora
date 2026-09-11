@@ -598,6 +598,16 @@ textarea[aria-invalid="true"] {
   outline-offset: 2px;
 }
 
+.inspect-paths {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-5);
+}
+
+.inspect-paths .inline-action {
+  margin-top: 0;
+}
+
 .history-table {
   width: 100%;
   margin-top: 0.85rem;
