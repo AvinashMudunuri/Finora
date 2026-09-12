@@ -275,3 +275,94 @@ describe("Finora app navigation", () => {
     expect(within(detail).getByText("Everyday Checking")).toBeInTheDocument();
   });
 });
+
+describe("Finora account and card management", () => {
+  it("creates an account and reflects it in financial position", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Accounts" }));
+    await user.click(screen.getByRole("button", { name: "Add account" }));
+    await user.type(screen.getByLabelText("Account name"), "Travel Fund");
+    await user.type(screen.getByLabelText("Account balance"), "500");
+    await user.click(screen.getByRole("button", { name: "Save new account" }));
+
+    expect(screen.getByRole("status")).toHaveTextContent("Account created.");
+    expect(screen.getByRole("button", { name: /^Travel Fund/ })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Dashboard" }));
+    expect(screen.getAllByText("$23,668.43").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("$25,837.02").length).toBeGreaterThan(0);
+  });
+
+  it("edits an account name while keeping its transactions inspectable", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Accounts" }));
+    await user.click(screen.getByRole("button", { name: "Edit this account" }));
+    const name = screen.getByLabelText("Account name");
+    await user.clear(name);
+    await user.type(name, "Primary Checking");
+    await user.click(screen.getByRole("button", { name: "Save account changes" }));
+
+    expect(screen.getByRole("status")).toHaveTextContent("Account updated.");
+    expect(screen.getByRole("region", { name: "Primary Checking" })).toBeInTheDocument();
+    expect(screen.getByText("Payroll — Acme Corp")).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: "View Payroll — Acme Corp" }),
+    );
+    const detail = screen.getByRole("region", { name: "Payroll — Acme Corp" });
+    expect(within(detail).getByText("Primary Checking")).toBeInTheDocument();
+  });
+
+  it("creates and edits a card so utilization appears on the dashboard", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Cards" }));
+    await user.click(screen.getByRole("button", { name: "Add card" }));
+    await user.type(screen.getByLabelText("Card name"), "Store Card");
+    await user.type(screen.getByLabelText("Card issuer"), "Northlake Bank");
+    await user.type(screen.getByLabelText("Credit limit"), "1000");
+    await user.type(screen.getByLabelText("Outstanding balance"), "100");
+    await user.type(screen.getByLabelText("Statement end"), "2026-10-08");
+    await user.type(screen.getByLabelText("Payment due date"), "2026-10-22");
+    await user.type(screen.getByLabelText("Minimum payment"), "25");
+    await user.click(screen.getByRole("button", { name: "Save new card" }));
+
+    expect(screen.getByRole("status")).toHaveTextContent("Card created.");
+    expect(screen.getByRole("button", { name: /^Store Card/ })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^Visa Rewards/ }));
+    await user.click(screen.getByRole("button", { name: "Edit this card" }));
+    const limit = screen.getByLabelText("Credit limit");
+    await user.clear(limit);
+    await user.type(limit, "2500");
+    await user.click(screen.getByRole("button", { name: "Save card changes" }));
+
+    expect(screen.getByRole("status")).toHaveTextContent("Card updated.");
+    expect(screen.getAllByText("73.7%").length).toBeGreaterThan(0);
+
+    await user.click(screen.getByRole("button", { name: "Dashboard" }));
+    expect(screen.getByRole("heading", { name: "High card utilization" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Card payment due" })).toBeInTheDocument();
+  });
+
+  it("persists a created account across a remount", async () => {
+    const user = userEvent.setup();
+    const first = render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Accounts" }));
+    await user.click(screen.getByRole("button", { name: "Add account" }));
+    await user.type(screen.getByLabelText("Account name"), "Travel Fund");
+    await user.type(screen.getByLabelText("Account balance"), "500");
+    await user.click(screen.getByRole("button", { name: "Save new account" }));
+    first.unmount();
+
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Accounts" }));
+    expect(screen.getByRole("button", { name: /^Travel Fund/ })).toBeInTheDocument();
+  });
+});

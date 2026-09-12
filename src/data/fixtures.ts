@@ -302,3 +302,76 @@ export const fixtureTransactions: Transaction[] = [
 ];
 
 assertValidFinanceData(fixtureAccounts, fixtureCards, fixtureTransactions);
+
+export const MANAGED_LEDGER_STORAGE_KEY = "finora.managed-ledger.v1";
+
+export type ManagedLedgerSnapshot = {
+  accounts: Account[];
+  cards: Card[];
+};
+
+export type StorageLike = {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+};
+
+export function usesManagedLedger(mode: string = String(import.meta.env.MODE)): boolean {
+  return !mode.startsWith("e2e-");
+}
+
+export function loadManagedLedger(
+  transactions: Transaction[],
+  storage: StorageLike | null,
+  fallback: ManagedLedgerSnapshot,
+): ManagedLedgerSnapshot {
+  if (!storage) {
+    return fallback;
+  }
+
+  const raw = storage.getItem(MANAGED_LEDGER_STORAGE_KEY);
+  if (!raw) {
+    return fallback;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as {
+      version?: unknown;
+      accounts?: unknown;
+      cards?: unknown;
+    };
+    if (
+      parsed.version !== 1 ||
+      !Array.isArray(parsed.accounts) ||
+      !Array.isArray(parsed.cards)
+    ) {
+      return fallback;
+    }
+
+    const accounts = parsed.accounts as Account[];
+    const cards = parsed.cards as Card[];
+    assertValidFinanceData(accounts, cards, transactions);
+    return { accounts, cards };
+  } catch {
+    return fallback;
+  }
+}
+
+export function saveManagedLedger(
+  storage: StorageLike | null,
+  snapshot: ManagedLedgerSnapshot,
+  transactions: Transaction[],
+): void {
+  if (!storage) {
+    return;
+  }
+
+  assertValidFinanceData(snapshot.accounts, snapshot.cards, transactions);
+  storage.setItem(
+    MANAGED_LEDGER_STORAGE_KEY,
+    JSON.stringify({
+      version: 1,
+      accounts: snapshot.accounts,
+      cards: snapshot.cards,
+    }),
+  );
+}

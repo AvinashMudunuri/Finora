@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   fixtureCards,
   fixtureTransactions,
@@ -14,12 +14,14 @@ import {
   paymentStatusLabel,
 } from "../domain/finance.ts";
 import type { Card } from "../domain/types.ts";
-import { Cards } from "./Cards.tsx";
+import { Cards, type CardsProps } from "./Cards.tsx";
 
 function renderCards(
   overrides: {
     cards?: Card[];
     selectedCardId?: string;
+    onCreateCard?: CardsProps["onCreateCard"];
+    onUpdateCard?: CardsProps["onUpdateCard"];
   } = {},
 ) {
   const cards = overrides.cards ?? fixtureCards;
@@ -31,6 +33,8 @@ function renderCards(
       transactions={fixtureTransactions}
       selectedCardId={selectedCardId}
       onSelectCard={() => undefined}
+      onCreateCard={overrides.onCreateCard}
+      onUpdateCard={overrides.onUpdateCard}
     />,
   );
 }
@@ -288,5 +292,110 @@ describe("Finora card detail", () => {
     expect(within(transactions).getByText("Groceries — Market Hall")).toBeInTheDocument();
     expect(within(transactions).queryByText("Dinner — Riverview")).not.toBeInTheDocument();
     expect(within(transactions).queryByText("Payment — Thank you")).not.toBeInTheDocument();
+  });
+});
+
+describe("Finora card management", () => {
+  it("creates a valid card through the management form", async () => {
+    const user = userEvent.setup();
+    const onCreateCard = vi.fn((draft) => ({
+      ok: true as const,
+      value: {
+        id: "card-1",
+        name: String(draft.name),
+        issuer: String(draft.issuer),
+        creditLimit: Number(draft.creditLimit),
+        outstandingBalance: Number(draft.outstandingBalance),
+        availableCredit: 900,
+        currency: "USD" as const,
+        statementPeriodEnd: String(draft.statementPeriodEnd),
+        paymentDueDate: String(draft.paymentDueDate),
+        minimumPayment: Number(draft.minimumPayment),
+        paymentStatus: "current" as const,
+      },
+    }));
+
+    renderCards({ onCreateCard });
+
+    await user.click(screen.getByRole("button", { name: "Add card" }));
+    await user.type(screen.getByLabelText("Card name"), "Store Card");
+    await user.type(screen.getByLabelText("Card issuer"), "Northlake Bank");
+    await user.type(screen.getByLabelText("Credit limit"), "1000");
+    await user.type(screen.getByLabelText("Outstanding balance"), "100");
+    await user.type(screen.getByLabelText("Statement end"), "2026-10-08");
+    await user.type(screen.getByLabelText("Payment due date"), "2026-10-22");
+    await user.type(screen.getByLabelText("Minimum payment"), "25");
+    await user.click(screen.getByRole("button", { name: "Save new card" }));
+
+    expect(onCreateCard).toHaveBeenCalledWith({
+      name: "Store Card",
+      issuer: "Northlake Bank",
+      creditLimit: "1000",
+      outstandingBalance: "100",
+      statementPeriodEnd: "2026-10-08",
+      paymentDueDate: "2026-10-22",
+      minimumPayment: "25",
+      paymentStatus: "current",
+    });
+    expect(screen.getByRole("status")).toHaveTextContent("Card created.");
+  });
+
+  it("shows field validation when card creation is rejected", async () => {
+    const user = userEvent.setup();
+    renderCards({
+      onCreateCard: () => ({
+        ok: false,
+        errors: { creditLimit: "Credit limit must be greater than 0." },
+      }),
+    });
+
+    await user.click(screen.getByRole("button", { name: "Add card" }));
+    await user.click(screen.getByRole("button", { name: "Save new card" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Credit limit must be greater than 0.",
+    );
+    expect(screen.getByLabelText("Credit limit")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+  });
+
+  it("edits the selected card while keeping its identifier", async () => {
+    const user = userEvent.setup();
+    const onUpdateCard = vi.fn((id, draft) => ({
+      ok: true as const,
+      value: {
+        id,
+        name: String(draft.name),
+        issuer: String(draft.issuer),
+        creditLimit: Number(draft.creditLimit),
+        outstandingBalance: Number(draft.outstandingBalance),
+        availableCredit: 3157.81,
+        currency: "USD" as const,
+        statementPeriodEnd: String(draft.statementPeriodEnd),
+        paymentDueDate: String(draft.paymentDueDate),
+        minimumPayment: Number(draft.minimumPayment),
+        paymentStatus: "due" as const,
+      },
+    }));
+
+    renderCards({ selectedCardId: "card-visa", onUpdateCard });
+
+    await user.click(screen.getByRole("button", { name: "Edit this card" }));
+    const limit = screen.getByLabelText("Credit limit");
+    await user.clear(limit);
+    await user.type(limit, "2500");
+    await user.click(screen.getByRole("button", { name: "Save card changes" }));
+
+    expect(onUpdateCard).toHaveBeenCalledWith(
+      "card-visa",
+      expect.objectContaining({
+        name: "Visa Rewards",
+        creditLimit: "2500",
+        outstandingBalance: "1842.19",
+      }),
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("Card updated.");
   });
 });

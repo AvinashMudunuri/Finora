@@ -52,6 +52,12 @@ export const ACCOUNT_TYPES: readonly AccountType[] = [
   "investment",
 ];
 
+export const CARD_PAYMENT_STATUSES: readonly CardPaymentStatus[] = [
+  "current",
+  "due",
+  "overdue",
+];
+
 export const TRANSACTION_EVENT_TYPES: readonly TransactionEventType[] = [
   "income",
   "expense",
@@ -60,3 +66,20 @@ export const TRANSACTION_EVENT_TYPES: readonly TransactionEventType[] = [
   "card_payment",
   "investment",
 ];
+
+export type AccountDraft = {
+  name: string;
+  type: string;
+  balance: string | number;
+};
+
+export type CardDraft = {
+  name: string;
+  issuer: string;
+  creditLimit: string | number;
+  outstandingBalance: string | number;
+  statementPeriodEnd: string;
+  paymentDueDate: string;
+  minimumPayment: string | number;
+  paymentStatus: string;
+};
