@@ -1,0 +1,67 @@
+Finora #39 — Test evidence
+HEAD: 6c9160b82e668864a1880916c3f4006ad5ed00a8
+Command: npm test -- --reporter=dot
+Result: 36 test files passed, 367 tests passed, duration ~58s
+Exit code: 0
+
+Coverage of layers (file inventory, not coverage %):
+
+Domain:
+  src/domain/validate.test.ts
+  src/domain/insights.test.ts
+  src/domain/finance.test.ts
+  src/domain/calculations.test.ts
+
+Fixtures:
+  src/data/fixtures.test.ts
+
+Application:
+  src/application/accounts/service.test.ts
+  src/application/accounts/migration.test.ts
+  src/application/accounts/bootstrap.test.ts
+  src/application/cards/service.test.ts
+  src/application/cards/migration.test.ts
+  src/application/cards/bootstrap.test.ts
+  src/application/transactions/service.test.ts
+  src/application/transactions/bootstrap.test.ts
+
+Persistence:
+  server/jsonFileAccountStore.test.ts
+  server/jsonFileCardStore.test.ts
+  server/jsonFileTransactionStore.test.ts
+
+API:
+  server/accountHttp.test.ts
+  server/cardHttp.test.ts
+  server/transactionHttp.test.ts
+
+Integration (gateway + calculations through stores):
+  server/accountGateway.integration.test.ts
+  server/cardGateway.integration.test.ts
+  server/transactionGateway.integration.test.ts
+  server/calculations.integration.test.ts
+  server/cardCalculations.integration.test.ts
+  server/transactionCalculations.integration.test.ts
+
+UI:
+  src/app/App.test.tsx
+  src/components/Accounts.test.tsx
+  src/components/Cards.test.tsx
+  src/components/Transactions.test.tsx
+  src/components/Dashboard.test.tsx
+  src/components/Spending.test.tsx
+  src/components/Insights.test.tsx
+  src/components/Insights.consistency.test.tsx
+  src/components/History.consistency.test.tsx
+
+PWA:
+  src/pwa/manifest.test.ts
+
+Gaps observed (assessment only; no tests added):
+  - No Playwright / browser automation suite in-repo
+  - npm scripts named build:e2e-* are Vite fixture modes, not Playwright
+  - No .github workflows (no CI)
+  - No concurrent-write / crash-recovery persistence tests
+  - No live cross-store referential-integrity tests (stores validate against fixtures)
+  - No service-worker stale-data tests
+  - No auth/security tests (auth is not a current product requirement)
