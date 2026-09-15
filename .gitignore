@@ -13,6 +13,7 @@ dist-e2e-high-util
 dist-e2e-no-attention
 dist-ssr
 dev-dist
+data/*.json
 *.local
 
 # Editor

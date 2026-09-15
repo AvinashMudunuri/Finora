@@ -20,6 +20,7 @@ export type TransactionsProps = {
   cards: Card[];
   transactions: Transaction[];
   selectedTransactionId: string;
+  systemNotice?: string;
   onSelectTransaction: (transactionId: string) => void;
   onOpenAccount?: (accountId: string) => void;
   onOpenCard?: (cardId: string) => void;
@@ -35,6 +36,7 @@ export function Transactions({
   cards,
   transactions,
   selectedTransactionId,
+  systemNotice,
   onSelectTransaction,
   onOpenAccount,
   onOpenCard,
@@ -113,6 +115,7 @@ export function Transactions({
     <div className="app-shell">
       <SiteHeader
         current="transactions"
+        systemNotice={systemNotice}
         onShowDashboard={() => {
           onShowDashboard?.();
         }}

@@ -25,12 +25,19 @@ export type AccountsProps = {
   cards: Card[];
   transactions: Transaction[];
   selectedAccountId: string;
+  systemNotice?: string;
   onSelectAccount: (accountId: string) => void;
-  onCreateAccount?: (draft: AccountDraft) => EntityMutationResult<Account>;
+  onCreateAccount?: (
+    draft: AccountDraft,
+  ) =>
+    | EntityMutationResult<Account>
+    | Promise<EntityMutationResult<Account>>;
   onUpdateAccount?: (
     id: string,
     draft: AccountDraft,
-  ) => EntityMutationResult<Account>;
+  ) =>
+    | EntityMutationResult<Account>
+    | Promise<EntityMutationResult<Account>>;
   onShowDashboard?: () => void;
   onShowCards?: () => void;
   onShowTransactions?: () => void;
@@ -44,6 +51,7 @@ export function Accounts({
   cards,
   transactions,
   selectedAccountId,
+  systemNotice,
   onSelectAccount,
   onCreateAccount,
   onUpdateAccount,
@@ -82,6 +90,7 @@ export function Accounts({
     <div className="app-shell">
       <SiteHeader
         current="accounts"
+        systemNotice={systemNotice}
         onShowDashboard={() => {
           onShowDashboard?.();
         }}
@@ -390,11 +399,17 @@ function AccountManagement({
 }: {
   accounts: Account[];
   selectedAccount: Account | null;
-  onCreateAccount?: (draft: AccountDraft) => EntityMutationResult<Account>;
+  onCreateAccount?: (
+    draft: AccountDraft,
+  ) =>
+    | EntityMutationResult<Account>
+    | Promise<EntityMutationResult<Account>>;
   onUpdateAccount?: (
     id: string,
     draft: AccountDraft,
-  ) => EntityMutationResult<Account>;
+  ) =>
+    | EntityMutationResult<Account>
+    | Promise<EntityMutationResult<Account>>;
 }) {
   const [mode, setMode] = useState<AccountFormMode>("closed");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -410,28 +425,30 @@ function AccountManagement({
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const result =
-      mode === "create"
-        ? onCreateAccount?.(draft)
-        : editingId
-          ? onUpdateAccount?.(editingId, draft)
-          : undefined;
+    void (async () => {
+      const result =
+        mode === "create"
+          ? await onCreateAccount?.(draft)
+          : editingId
+            ? await onUpdateAccount?.(editingId, draft)
+            : undefined;
 
-    if (!result) {
-      return;
-    }
+      if (!result) {
+        return;
+      }
 
-    if (!result.ok) {
-      setErrors(result.errors);
-      setNotice("");
-      return;
-    }
+      if (!result.ok) {
+        setErrors(result.errors);
+        setNotice("");
+        return;
+      }
 
-    setErrors({});
-    setNotice(mode === "create" ? "Account created." : "Account updated.");
-    setMode("closed");
-    setEditingId(null);
-    setDraft(emptyAccountDraft());
+      setErrors({});
+      setNotice(mode === "create" ? "Account created." : "Account updated.");
+      setMode("closed");
+      setEditingId(null);
+      setDraft(emptyAccountDraft());
+    })();
   };
 
   return (

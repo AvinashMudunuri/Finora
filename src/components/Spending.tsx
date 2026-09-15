@@ -26,6 +26,7 @@ export type SpendingProps = {
   accounts: Account[];
   cards: Card[];
   transactions: Transaction[];
+  systemNotice?: string;
   onOpenTransaction?: (transactionId: string) => void;
   onShowDashboard?: () => void;
   onShowAccounts?: () => void;
@@ -62,6 +63,7 @@ export function Spending({
   accounts,
   cards,
   transactions,
+  systemNotice,
   onOpenTransaction,
   onShowDashboard,
   onShowAccounts,
@@ -120,6 +122,7 @@ export function Spending({
     <div className="app-shell">
       <SiteHeader
         current="spending"
+        systemNotice={systemNotice}
         onShowDashboard={() => {
           onShowDashboard?.();
         }}

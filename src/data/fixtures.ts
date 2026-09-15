@@ -304,6 +304,7 @@ export const fixtureTransactions: Transaction[] = [
 assertValidFinanceData(fixtureAccounts, fixtureCards, fixtureTransactions);
 
 export const MANAGED_LEDGER_STORAGE_KEY = "finora.managed-ledger.v1";
+export const MANAGED_CARDS_STORAGE_KEY = "finora.managed-cards.v1";
 
 export type ManagedLedgerSnapshot = {
   accounts: Account[];
@@ -313,6 +314,7 @@ export type ManagedLedgerSnapshot = {
 export type StorageLike = {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
+  removeItem?(key: string): void;
 };
 
 export function usesManagedLedger(mode: string = String(import.meta.env.MODE)): boolean {
@@ -374,4 +376,98 @@ export function saveManagedLedger(
       cards: snapshot.cards,
     }),
   );
+}
+
+export function peekManagedLedgerAccounts(
+  storage: StorageLike | null,
+  transactions: Transaction[],
+): Account[] | null {
+  if (!storage) {
+    return null;
+  }
+
+  const raw = storage.getItem(MANAGED_LEDGER_STORAGE_KEY);
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as {
+      version?: unknown;
+      accounts?: unknown;
+      cards?: unknown;
+    };
+    if (
+      parsed.version !== 1 ||
+      !Array.isArray(parsed.accounts) ||
+      !Array.isArray(parsed.cards)
+    ) {
+      return null;
+    }
+    const accounts = parsed.accounts as Account[];
+    const cards = parsed.cards as Card[];
+    assertValidFinanceData(accounts, cards, transactions);
+    return accounts;
+  } catch {
+    return null;
+  }
+}
+
+export function loadManagedCards(
+  transactions: Transaction[],
+  accountsForValidation: Account[],
+  storage: StorageLike | null,
+  fallback: Card[],
+): Card[] {
+  if (!storage) {
+    return fallback;
+  }
+
+  const cardsRaw = storage.getItem(MANAGED_CARDS_STORAGE_KEY);
+  if (cardsRaw) {
+    try {
+      const parsed = JSON.parse(cardsRaw) as {
+        version?: unknown;
+        cards?: unknown;
+      };
+      if (parsed.version !== 1 || !Array.isArray(parsed.cards)) {
+        return fallback;
+      }
+      const cards = parsed.cards as Card[];
+      assertValidFinanceData(accountsForValidation, cards, transactions);
+      return cards;
+    } catch {
+      return fallback;
+    }
+  }
+
+  const ledger = loadManagedLedger(transactions, storage, {
+    accounts: accountsForValidation,
+    cards: fallback,
+  });
+  return ledger.cards;
+}
+
+export function saveManagedCards(
+  storage: StorageLike | null,
+  cards: Card[],
+  transactions: Transaction[],
+  accountsForValidation: Account[],
+): void {
+  if (!storage) {
+    return;
+  }
+
+  assertValidFinanceData(accountsForValidation, cards, transactions);
+  storage.setItem(
+    MANAGED_CARDS_STORAGE_KEY,
+    JSON.stringify({
+      version: 1,
+      cards,
+    }),
+  );
+}
+
+export function retireManagedLedgerAccounts(storage: StorageLike | null): void {
+  storage?.removeItem?.(MANAGED_LEDGER_STORAGE_KEY);
 }

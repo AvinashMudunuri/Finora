@@ -1,4 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { readAccountBootstrap } from "../application/accounts/readBootstrap.ts";
+import {
+  ACCOUNT_UNAVAILABLE_MESSAGE,
+  type AccountGateway,
+} from "../application/accounts/contract.ts";
+import {
+  ACCOUNT_BACKEND_MIGRATED_KEY,
+  migrateLocalAccounts,
+} from "../application/accounts/migration.ts";
 import { Accounts } from "../components/Accounts.tsx";
 import { Cards } from "../components/Cards.tsx";
 import { Dashboard } from "../components/Dashboard.tsx";
@@ -9,7 +18,11 @@ import {
   fixtureAccounts,
   loadAppCards,
   loadAppTransactions,
+  loadManagedCards,
   loadManagedLedger,
+  peekManagedLedgerAccounts,
+  retireManagedLedgerAccounts,
+  saveManagedCards,
   saveManagedLedger,
   usesManagedLedger,
   type ManagedLedgerSnapshot,
@@ -26,6 +39,10 @@ import {
 const appCards = loadAppCards();
 const appTransactions = loadAppTransactions();
 
+export type AppProps = {
+  accountGateway?: AccountGateway;
+};
+
 function managedStorage(): Storage | null {
   if (!usesManagedLedger() || typeof window === "undefined") {
     return null;
@@ -34,11 +51,20 @@ function managedStorage(): Storage | null {
   return window.localStorage;
 }
 
-function initialLedger(): ManagedLedgerSnapshot {
+function initialLocalLedger(): ManagedLedgerSnapshot {
   return loadManagedLedger(appTransactions, managedStorage(), {
     accounts: fixtureAccounts,
     cards: appCards,
   });
+}
+
+function initialCards(): Card[] {
+  return loadManagedCards(
+    appTransactions,
+    fixtureAccounts,
+    managedStorage(),
+    appCards,
+  );
 }
 
 type AppView =
@@ -49,23 +75,94 @@ type AppView =
   | "spending"
   | "insights";
 
-export default function App() {
+export default function App({ accountGateway }: AppProps) {
   const [view, setView] = useState<AppView>("dashboard");
-  const [ledger, setLedger] = useState<ManagedLedgerSnapshot>(initialLedger);
+  const [accounts, setAccounts] = useState<Account[]>(() =>
+    accountGateway
+      ? (readAccountBootstrap() ?? fixtureAccounts)
+      : initialLocalLedger().accounts,
+  );
+  const [cards, setCards] = useState<Card[]>(() =>
+    accountGateway ? initialCards() : initialLocalLedger().cards,
+  );
+  const [accountLoadError, setAccountLoadError] = useState("");
   const [selectedAccountId, setSelectedAccountId] = useState(
-    () => initialLedger().accounts[0]?.id ?? "",
+    () => accounts[0]?.id ?? "",
   );
   const [selectedCardId, setSelectedCardId] = useState(
-    () => initialLedger().cards[0]?.id ?? "",
+    () => cards[0]?.id ?? "",
   );
   const [selectedTransactionId, setSelectedTransactionId] = useState(
     appTransactions[0]?.id ?? "",
   );
 
-  const accounts = ledger.accounts;
-  const cards = ledger.cards;
+  useEffect(() => {
+    if (!accountGateway || typeof window === "undefined") {
+      return;
+    }
 
-  const persist = (next: ManagedLedgerSnapshot): EntityMutationResult<true> => {
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const storage = window.localStorage;
+        const alreadyMigrated = storage.getItem(ACCOUNT_BACKEND_MIGRATED_KEY) === "1";
+        const backendAccounts = await accountGateway.list();
+        const local = alreadyMigrated
+          ? null
+          : peekManagedLedgerAccounts(storage, appTransactions);
+        const nextAccounts = alreadyMigrated
+          ? backendAccounts
+          : await migrateLocalAccounts(accountGateway, {
+              backend: backendAccounts,
+              local,
+              fixtures: fixtureAccounts,
+            });
+
+        if (!alreadyMigrated) {
+          const nextCards = loadManagedCards(
+            appTransactions,
+            fixtureAccounts,
+            storage,
+            appCards,
+          );
+          saveManagedCards(
+            storage,
+            nextCards,
+            appTransactions,
+            fixtureAccounts,
+          );
+          retireManagedLedgerAccounts(storage);
+          storage.setItem(ACCOUNT_BACKEND_MIGRATED_KEY, "1");
+          if (!cancelled) {
+            setCards(nextCards);
+          }
+        }
+
+        if (!cancelled) {
+          setAccounts(nextAccounts);
+          setAccountLoadError("");
+          setSelectedAccountId((current) =>
+            nextAccounts.some((account) => account.id === current)
+              ? current
+              : (nextAccounts[0]?.id ?? ""),
+          );
+        }
+      } catch {
+        if (!cancelled) {
+          setAccountLoadError(ACCOUNT_UNAVAILABLE_MESSAGE);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accountGateway]);
+
+  const persistLocalLedger = (
+    next: ManagedLedgerSnapshot,
+  ): EntityMutationResult<true> => {
     try {
       saveManagedLedger(managedStorage(), next, appTransactions);
     } catch (error) {
@@ -80,19 +177,54 @@ export default function App() {
       };
     }
 
-    setLedger(next);
+    setAccounts(next.accounts);
+    setCards(next.cards);
     return { ok: true, value: true };
   };
 
-  const handleCreateAccount = (
+  const persistCards = (nextCards: Card[]): EntityMutationResult<true> => {
+    try {
+      saveManagedCards(
+        managedStorage(),
+        nextCards,
+        appTransactions,
+        fixtureAccounts,
+      );
+    } catch (error) {
+      return {
+        ok: false,
+        errors: {
+          form:
+            error instanceof Error && error.message.trim().length > 0
+              ? error.message
+              : "The change would produce an invalid financial model.",
+        },
+      };
+    }
+
+    setCards(nextCards);
+    return { ok: true, value: true };
+  };
+
+  const handleCreateAccount = async (
     draft: AccountDraft,
-  ): EntityMutationResult<Account> => {
+  ): Promise<EntityMutationResult<Account>> => {
+    if (accountGateway) {
+      const created = await accountGateway.create(draft);
+      if (!created.ok) {
+        return created;
+      }
+      setAccounts((current) => [...current, created.value]);
+      setSelectedAccountId(created.value.id);
+      return created;
+    }
+
     const created = createAccount(draft, accounts);
     if (!created.ok) {
       return created;
     }
 
-    const saved = persist({
+    const saved = persistLocalLedger({
       accounts: [...accounts, created.value],
       cards,
     });
@@ -104,16 +236,27 @@ export default function App() {
     return created;
   };
 
-  const handleUpdateAccount = (
+  const handleUpdateAccount = async (
     id: string,
     draft: AccountDraft,
-  ): EntityMutationResult<Account> => {
+  ): Promise<EntityMutationResult<Account>> => {
+    if (accountGateway) {
+      const updated = await accountGateway.update(id, draft);
+      if (!updated.ok) {
+        return updated;
+      }
+      setAccounts((current) =>
+        current.map((account) => (account.id === id ? updated.value : account)),
+      );
+      return updated;
+    }
+
     const updated = updateAccount(id, draft, accounts, appTransactions, cards);
     if (!updated.ok) {
       return updated;
     }
 
-    const saved = persist({
+    const saved = persistLocalLedger({
       accounts: accounts.map((account) =>
         account.id === id ? updated.value : account,
       ),
@@ -132,10 +275,12 @@ export default function App() {
       return created;
     }
 
-    const saved = persist({
-      accounts,
-      cards: [...cards, created.value],
-    });
+    const saved = accountGateway
+      ? persistCards([...cards, created.value])
+      : persistLocalLedger({
+          accounts,
+          cards: [...cards, created.value],
+        });
     if (!saved.ok) {
       return saved;
     }
@@ -153,10 +298,14 @@ export default function App() {
       return updated;
     }
 
-    const saved = persist({
-      accounts,
-      cards: cards.map((card) => (card.id === id ? updated.value : card)),
-    });
+    const saved = accountGateway
+      ? persistCards(
+          cards.map((card) => (card.id === id ? updated.value : card)),
+        )
+      : persistLocalLedger({
+          accounts,
+          cards: cards.map((card) => (card.id === id ? updated.value : card)),
+        });
     if (!saved.ok) {
       return saved;
     }
@@ -168,6 +317,8 @@ export default function App() {
     setView("insights");
   };
 
+  const systemNotice = accountLoadError;
+
   if (view === "accounts") {
     return (
       <Accounts
@@ -175,6 +326,7 @@ export default function App() {
         cards={cards}
         transactions={appTransactions}
         selectedAccountId={selectedAccountId}
+        systemNotice={systemNotice}
         onSelectAccount={setSelectedAccountId}
         onCreateAccount={handleCreateAccount}
         onUpdateAccount={handleUpdateAccount}
@@ -205,6 +357,7 @@ export default function App() {
         cards={cards}
         transactions={appTransactions}
         selectedCardId={selectedCardId}
+        systemNotice={systemNotice}
         onSelectCard={setSelectedCardId}
         onCreateCard={handleCreateCard}
         onUpdateCard={handleUpdateCard}
@@ -236,6 +389,7 @@ export default function App() {
         cards={cards}
         transactions={appTransactions}
         selectedTransactionId={selectedTransactionId}
+        systemNotice={systemNotice}
         onSelectTransaction={setSelectedTransactionId}
         onOpenAccount={(accountId) => {
           setSelectedAccountId(accountId);
@@ -268,6 +422,7 @@ export default function App() {
         accounts={accounts}
         cards={cards}
         transactions={appTransactions}
+        systemNotice={systemNotice}
         onShowDashboard={() => {
           setView("dashboard");
         }}
@@ -295,6 +450,7 @@ export default function App() {
         accounts={accounts}
         cards={cards}
         transactions={appTransactions}
+        systemNotice={systemNotice}
         onShowDashboard={() => {
           setView("dashboard");
         }}
@@ -327,6 +483,7 @@ export default function App() {
       accounts={accounts}
       cards={cards}
       transactions={appTransactions}
+      systemNotice={systemNotice}
       onShowAccounts={() => {
         setView("accounts");
       }}

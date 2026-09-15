@@ -18,6 +18,7 @@ export type DashboardProps = {
   accounts: Account[];
   cards: Card[];
   transactions: Transaction[];
+  systemNotice?: string;
   onShowCards?: () => void;
   onShowTransactions?: () => void;
   onShowSpending?: () => void;
@@ -39,6 +40,7 @@ export function Dashboard({
   accounts,
   cards,
   transactions,
+  systemNotice,
   onShowCards,
   onShowTransactions,
   onShowSpending,
@@ -70,6 +72,7 @@ export function Dashboard({
     <div className="app-shell">
       <SiteHeader
         current="dashboard"
+        systemNotice={systemNotice}
         onShowDashboard={() => undefined}
         onShowAccounts={() => {
           onShowAccounts?.();
