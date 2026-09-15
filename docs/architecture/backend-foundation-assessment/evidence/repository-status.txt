@@ -1,0 +1,39 @@
+Finora #39 — Repository baseline
+Inspected: 2026-09-15
+Checkout: C:\Users\Avinash.Mudunuri\AppData\Local\Temp\aaep-finora-v02-evidence-39-664050
+Remote: https://github.com/AvinashMudunuri/Finora.git
+
+Current branch at inspection: main
+HEAD SHA: 6c9160b82e668864a1880916c3f4006ad5ed00a8
+Working tree at inspection: clean (no product modifications)
+
+Merged PRs present on HEAD:
+  #36 Persist Accounts through a local backend boundary
+      mergedAt: 2026-09-15T06:56:38Z
+      mergeCommit: 86fb90b015c3e8fc931a8ab827eaedb63a1e3ec4
+  #37 Persist Cards through a local backend boundary
+      mergedAt: 2026-09-15T12:39:15Z
+      mergeCommit: b19a357003a135f6a4f4a7bc625eddd5e24fd914
+  #38 Persist Transactions through a local backend boundary
+      mergedAt: 2026-09-15T14:00:56Z
+      mergeCommit: 6c9160b82e668864a1880916c3f4006ad5ed00a8  (current HEAD)
+
+Recent history:
+  6c9160b Persist Transactions through the existing local backend boundary without replacing the domain model. (#38)
+  b19a357 Persist cards through the existing local backend boundary without replacing the domain model (#37)
+  86fb90b Persist Accounts through a local backend boundary (#36)
+  bb29816 Merge pull request #35 from AvinashMudunuri/aaep/finora-account-card-management
+
+Assessment branch (created after inspection, docs only):
+  aaep/finora-backend-foundation-assessment
+
+Verification:
+  git log shows #36, #37, #38 commits as the three newest commits on main.
+  server/ contains jsonFileAccountStore, jsonFileCardStore, jsonFileTransactionStore,
+  accountHttp, cardHttp, transactionHttp, accountRuntime, vitePlugin, standalone.
+  src/application/{accounts,cards,transactions} all exist.
+  src/infrastructure/{accounts,cards,transactions} HTTP gateways all exist.
+
+Note: C:\Codebase\Personal\Finora was on branch cursor/inspect-spending-from-insight
+and is not the source of this assessment. This package was written from the
+temporary clone of origin/main at 6c9160b.
