@@ -206,21 +206,43 @@ export default function App({ accountGateway }: AppProps) {
     return { ok: true, value: true };
   };
 
-  const handleCreateAccount = async (
-    draft: AccountDraft,
-  ): Promise<EntityMutationResult<Account>> => {
-    if (accountGateway) {
-      const created = await accountGateway.create(draft);
-      if (!created.ok) {
-        return created;
+  const persistRemoteAccount = (
+    operation: Promise<EntityMutationResult<Account>>,
+    onSuccess: (account: Account) => void,
+  ): void => {
+    void operation.then((remote) => {
+      if (!remote.ok) {
+        setAccountLoadError(
+          remote.errors.form ?? ACCOUNT_UNAVAILABLE_MESSAGE,
+        );
+        return;
       }
-      setAccounts((current) => [...current, created.value]);
-      setSelectedAccountId(created.value.id);
+      onSuccess(remote.value);
+    });
+  };
+
+  const handleCreateAccount = (
+    draft: AccountDraft,
+  ): EntityMutationResult<Account> => {
+    const created = createAccount(draft, accounts);
+    if (!created.ok) {
       return created;
     }
 
-    const created = createAccount(draft, accounts);
-    if (!created.ok) {
+    if (accountGateway) {
+      persistRemoteAccount(accountGateway.create(draft), (account) => {
+        setAccounts((current) => {
+          if (current.some((item) => item.id === account.id)) {
+            return current.map((item) =>
+              item.id === account.id ? account : item,
+            );
+          }
+          return [...current, account];
+        });
+        setSelectedAccountId(account.id);
+      });
+      setAccounts([...accounts, created.value]);
+      setSelectedAccountId(created.value.id);
       return created;
     }
 
@@ -236,23 +258,24 @@ export default function App({ accountGateway }: AppProps) {
     return created;
   };
 
-  const handleUpdateAccount = async (
+  const handleUpdateAccount = (
     id: string,
     draft: AccountDraft,
-  ): Promise<EntityMutationResult<Account>> => {
-    if (accountGateway) {
-      const updated = await accountGateway.update(id, draft);
-      if (!updated.ok) {
-        return updated;
-      }
-      setAccounts((current) =>
-        current.map((account) => (account.id === id ? updated.value : account)),
-      );
+  ): EntityMutationResult<Account> => {
+    const updated = updateAccount(id, draft, accounts, appTransactions, cards);
+    if (!updated.ok) {
       return updated;
     }
 
-    const updated = updateAccount(id, draft, accounts, appTransactions, cards);
-    if (!updated.ok) {
+    if (accountGateway) {
+      persistRemoteAccount(accountGateway.update(id, draft), (account) => {
+        setAccounts((current) =>
+          current.map((item) => (item.id === id ? account : item)),
+        );
+      });
+      setAccounts(
+        accounts.map((account) => (account.id === id ? updated.value : account)),
+      );
       return updated;
     }
 

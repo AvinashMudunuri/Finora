@@ -423,32 +423,39 @@ function AccountManagement({
   const canCreate = Boolean(onCreateAccount);
   const canEdit = Boolean(onUpdateAccount && selectedAccount);
 
+  const applyResult = (result: EntityMutationResult<Account>) => {
+    if (!result.ok) {
+      setErrors(result.errors);
+      setNotice("");
+      return;
+    }
+
+    setErrors({});
+    setNotice(mode === "create" ? "Account created." : "Account updated.");
+    setMode("closed");
+    setEditingId(null);
+    setDraft(emptyAccountDraft());
+  };
+
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    void (async () => {
-      const result =
-        mode === "create"
-          ? await onCreateAccount?.(draft)
-          : editingId
-            ? await onUpdateAccount?.(editingId, draft)
-            : undefined;
+    const pending =
+      mode === "create"
+        ? onCreateAccount?.(draft)
+        : editingId
+          ? onUpdateAccount?.(editingId, draft)
+          : undefined;
 
-      if (!result) {
-        return;
-      }
+    if (!pending) {
+      return;
+    }
 
-      if (!result.ok) {
-        setErrors(result.errors);
-        setNotice("");
-        return;
-      }
+    if (typeof pending === "object" && "then" in pending) {
+      void pending.then(applyResult);
+      return;
+    }
 
-      setErrors({});
-      setNotice(mode === "create" ? "Account created." : "Account updated.");
-      setMode("closed");
-      setEditingId(null);
-      setDraft(emptyAccountDraft());
-    })();
+    applyResult(pending);
   };
 
   return (
