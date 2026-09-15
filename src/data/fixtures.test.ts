@@ -16,7 +16,9 @@ import {
   MANAGED_CARDS_STORAGE_KEY,
   MANAGED_LEDGER_STORAGE_KEY,
   loadManagedCards,
+  peekManagedCards,
   peekManagedLedgerAccounts,
+  retireManagedCards,
   retireManagedLedgerAccounts,
   saveManagedCards,
   saveManagedLedger,
@@ -413,5 +415,25 @@ describe("managed cards persistence after account backend split", () => {
     );
     retireManagedLedgerAccounts(storage);
     expect(peekManagedLedgerAccounts(storage, fixtureTransactions)).toBeNull();
+  });
+
+  it("peeks managed cards and retires the cards overlay after a backend handoff", () => {
+    const memory = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => memory.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        memory.set(key, value);
+      },
+      removeItem: (key: string) => {
+        memory.delete(key);
+      },
+    };
+
+    saveManagedCards(storage, fixtureCards, fixtureTransactions, fixtureAccounts);
+    expect(peekManagedCards(storage, fixtureTransactions, fixtureAccounts)?.[0]?.id).toBe(
+      "card-visa",
+    );
+    retireManagedCards(storage);
+    expect(peekManagedCards(storage, fixtureTransactions, fixtureAccounts)).toBeNull();
   });
 });

@@ -26,9 +26,26 @@ Balances live on the account or card they belong to. The dashboard now calculate
 
 Income, transfers, card payments, and investment events are not spending. Credit limits are not assets or liabilities. These calculations assume the fixture snapshot is a single currency (USD) and do not convert FX.
 
-Accounts are persisted through a local Node HTTP boundary (`GET|POST /api/accounts`, `PUT /api/accounts/:id`) backed by a versioned JSON file (`data/accounts.json` by default, or `FINORA_ACCOUNT_STORE`). The backend reuses the existing Account domain model and validation; it does not introduce a second financial model. Cards remain on versioned localStorage (`finora.managed-cards.v1`). Transactions remain fixture-backed. A previous combined ledger (`finora.managed-ledger.v1`) can push local Account edits into an unused fixture-seeded backend once, then drops Account data from localStorage so Accounts have a single source of truth.
+Accounts and Cards are persisted through the same local Node HTTP process.
 
-There is no authentication, bank connection, or cloud database. `e2e-*` Vite modes and unit tests keep the previous in-process fixture/local ledger path so those suites stay deterministic. The production build remains a Progressive Web App: it ships a web app manifest and a service worker, and `/api/accounts` is network-only.
+- Accounts: `GET|POST /api/accounts`, `PUT /api/accounts/:id` → `data/accounts.json` or `FINORA_ACCOUNT_STORE`
+- Cards: `GET|POST /api/cards`, `PUT /api/cards/:id` → `data/cards.json` or `FINORA_CARD_STORE`
+
+The backend reuses the existing Account and Card domain models and validation; it does not introduce a second financial model. Available credit is always `creditLimit - outstandingBalance`. Transactions remain fixture-backed.
+
+A previous combined ledger (`finora.managed-ledger.v1`) can push local Account edits into an unused fixture-seeded backend once. Managed Cards (`finora.managed-cards.v1`, or leftover ledger cards) can push local Card edits into an unused fixture-seeded backend once. After those handoffs, localStorage is no longer the production source of truth for Accounts or Cards.
+
+### Cards API
+
+| Method | Path | Success | Failure |
+| --- | --- | --- | --- |
+| GET | `/api/cards` | `{ "cards": [...] }` | `500 { "kind": "unavailable", "error": "Cards are temporarily unavailable." }` |
+| POST | `/api/cards` | `{ "card": {...} }` | `400 { "kind": "validation", "errors": { ... } }` |
+| PUT | `/api/cards/:id` | `{ "card": {...} }` | `400` validation, `404 { "kind": "not_found", "error": "That card no longer exists." }`, or `500` unavailable |
+
+POST/PUT accept the existing Card draft fields: `name`, `issuer`, `creditLimit`, `outstandingBalance`, `statementPeriodEnd`, `paymentDueDate`, `minimumPayment`, `paymentStatus`. Client-provided `availableCredit` is ignored. Validation errors are a field map, not an array. Responses never include filesystem paths or stack traces.
+
+There is no authentication, bank connection, or cloud database. `e2e-*` Vite modes and unit tests keep the previous in-process fixture/local ledger path so those suites stay deterministic. The production build remains a Progressive Web App: it ships a web app manifest and a service worker, and `/api/accounts` plus `/api/cards` are network-only.
 
 ## Unresolved product decisions
 
@@ -48,7 +65,7 @@ npm install
 npm run dev
 ```
 
-Preview the installable build with `npm run build && npm run preview`. That preview process also hosts the Account API. `npm run server` serves `dist/` plus the same API from a standalone Node HTTP process.
+Preview the installable build with `npm run build && npm run preview`. That preview process also hosts the Account and Card APIs. `npm run server` serves `dist/` plus the same APIs from a standalone Node HTTP process.
 
 ## Testing, typecheck, lint, and build
 
