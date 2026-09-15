@@ -1,0 +1,40 @@
+# PRD traceability matrix
+
+Statuses: COMPLETE · PARTIALLY COMPLETE · MISSING · DEFERRED BY PRD · OPEN DECISION · NOT APPLICABLE
+
+Priorities: P0 product blocker · P1 high-value next · P2 useful · P3 later
+
+P0 is reserved for gaps that prevent the core product promise or MVP acceptance. Missing IA names are not automatically P0.
+
+| PRD Area | Requirement | Current Implementation | Evidence | Status | Gap | Priority |
+|---|---|---|---|---|---|---|
+| Vision | Unified cockpit: accounts, cards, cash, investments, income, spending, savings, NW, insights | Six nav surfaces; cards first-class; investments/income/savings exist as numbers not as IA | `SiteHeader.tsx`; `Dashboard.tsx`; `docs/product/PRD.md` Product Vision | PARTIALLY COMPLETE | Cockpit exists; Income/Savings/Investments/Settings are not first-class surfaces | P1 |
+| Principles | Cards first-class; trust; actionable insights; low cognitive load; progressive disclosure | Cards are their own view and model; one calc module; Dashboard then Inspect | `src/domain/types.ts` Card; `Cards.tsx`; `Dashboard.tsx` | PARTIALLY COMPLETE | Insights repeat Dashboard attention; Dashboard is long | P2 |
+| Target user | Fragmented institutions; story behind numbers | Manual/fixture + JSON backend; evidence/Inspect exists | PRD MVP excludes live aggregation; `AttentionInsights.tsx` | PARTIALLY COMPLETE | Story exists for spending/NW/cards; not for income/savings/cash movement | P1 |
+| IA Home/Overview | Snapshot: NW, liquid, investments, monthly spend/income/savings, cards, few insights | Dashboard Overview + Monthly flow + Attention | `Dashboard.tsx` Overview, Monthly flow, Attention | COMPLETE | Exact hierarchy still design-open in PRD; current snapshot answers position without opening every account | — |
+| IA Accounts | Bank, cash, investment; add/manage; balance; type; contribution; associated txns; identity vs summaries | Create/update; types; balances; per-account txns; investment labeled “Current value” | `Accounts.tsx`; `createAccount`/`updateAccount`; `App.tsx` | COMPLETE | Contribution to position is via Dashboard, not an in-list NW share | P3 |
+| IA Cards | Identity, issuer, limit, outstanding, available, util, statement, due, min pay, status, card txns; obligations in cash-flow context | All listed fields except rewards; associated card txns; util + payment attention | `Cards.tsx`; `types.ts` Card; `calculateCardUtilization` | PARTIALLY COMPLETE | Rewards deferred. Card min-pay/due not shown inside Monthly flow | P1 |
+| IA Cards | Rewards / benefits | Not implemented | PRD: “where the product later supports it”; MVP excludes rewards engines | DEFERRED BY PRD | None for MVP | — |
+| IA Transactions | Event types: income, expense, transfer, card purchase, card payment, investment; inspect; do not collapse types | All six event types; search/filter/period; inspect to account/card | `types.ts` TransactionEventType; `Transactions.tsx` | COMPLETE | No create/edit (MVP is read-and-understand) | — |
+| IA Spending | Monthly overview | Selected-month spending total + history table | `Spending.tsx`; `calculateMonthlySpending` | COMPLETE | — | — |
+| IA Spending | Category-level spending | No category field on Transaction; no UI | `src/domain/types.ts`; domain grep `category` empty; PRD open decision | OPEN DECISION | Cannot implement without categorization rules | — |
+| IA Spending | Card vs bank spending | Spending = expense + card_purchase; no split shown | `isSpendingEvent` in `calculations.ts`; `Spending.tsx` | PARTIALLY COMPLETE | Split is computable from eventType without new categories | P1 |
+| IA Spending | Trend / change | Month-over-month spending change + drivers | `calculateSpendingChange`; `listSpendingChangeDrivers`; Spending + Insights | COMPLETE | — | — |
+| IA Spending | Drill-down to transactions | Monthly spending/income lists; driver Inspect | `Spending.tsx` `listMonthlySpendingTransactions` | COMPLETE | — | — |
+| IA Income | First-class view of money in, selected period | Calculation + Dashboard stat + Spending income list/period controls | `calculateMonthlyIncome`; `Dashboard.tsx`; `Spending.tsx` | PARTIALLY COMPLETE | No Income nav; page titled Spending | P1 |
+| IA Savings | Income, spending, retained; transfers must not mislead | `savings = income − spending`; transfers and card_payments excluded from both sides | `calculateMonthlySavings`; Spending copy “Income − spending” | PARTIALLY COMPLETE | Visible as a derived stat, not a Savings experience; no savings-change story | P1 |
+| IA Investments | Current value; NW contribution; account/instrument breakdown when available; later trend | Investment account type; asset line on Overview; investment event type; no Investments view, no holdings, no investment history | `AccountType`; `calculateAssetBreakdown`; `Accounts.tsx` | PARTIALLY COMPLETE | Visible in the picture; no dedicated inspect/history. Trend DEFERRED (“later expansion”). Market data DEFERRED | P1 |
+| IA Net Worth | Assets − liabilities; inspectable; define assets/liabilities; no double count | Defined: assets bank+cash+investment; liabilities card outstanding; history table; evidence via insights | `calculateNetWorth`; Dashboard Overview + history; `listNetWorthChangeEvidence` | COMPLETE | No Net Worth route — not required; Dashboard owns it | — |
+| IA Insights | Explain change/risk; evidence; small number; not repeat dashboard numbers | Four deterministic kinds; Inspect; same `AttentionInsights` on Dashboard and Insights | `insights.ts` `listAttentionInsights`; `Insights.tsx`; `Dashboard.tsx` | PARTIALLY COMPLETE | Insights page is a duplicate attention list. Missing PRD examples (large txn, cash reason, savings behavior) are OPEN for exact rules | P1 |
+| IA Settings | Preferences, config, categories, privacy, data sources | No Settings surface | `AppView` has no settings | MISSING | Most contents OPEN or DEFERRED; not an MVP include | P3 |
+| MVP boundary | Manage accounts/cards; view balances/txns; NW; monthly I/S/S; card util/obligations; inspect; few insights; polished overview | Present as above | This matrix; MVP section of PRD | PARTIALLY COMPLETE | I/S/S visible but not first-class; Insights overlap | P1 |
+| MVP exclude | Live aggregation, institution connectivity, market data, rewards engines | Not built | `package.json` (react only); no aggregation code | DEFERRED BY PRD | Keep deferred | — |
+| NFR Responsive | Responsive UX | Breakpoints 719 / 720 / 960; nav scrolls on small screens | `src/styles/index.css` | PARTIALLY COMPLETE | Usable web-responsive; mobile-first vs web-first still OPEN | P3 |
+| NFR Explainability | Trace numbers to records | Inspect on spending, cards, accounts, attention evidence | `AttentionInsights.tsx`; `Transactions.tsx` | COMPLETE | — | — |
+| NFR Calculation consistency | One defensible math | Single `calculations.ts`; UI + integration tests consume it | `calculations.ts`; `*.consistency.test.tsx`; server calculation integration tests | COMPLETE | Stored balances are not reconstructed from txns (product model, not a fork) | — |
+| Product coherence | One product, not a pile of features | Shared header, shared calcs, Dashboard as hub | `SiteHeader.tsx`; Dashboard Inspect | PARTIALLY COMPLETE | Spending title vs income/savings content; Insights duplicate; investments buried | P1 |
+| Open: brand | Product name | Finora wordmark and tagline | `SiteHeader.tsx`; `src/pwa/manifest.ts` | COMPLETE (resolved in repo) | PRD left it open; implementation named it | — |
+| Open: categorization | Rules | Unresolved; no field | PRD “Product Decisions Still Open”; `types.ts` | OPEN DECISION | Blocks category spending | — |
+| Open: liabilities beyond cards | Other debts | Cards only | `calculateNetWorth` comment | OPEN DECISION | Safe to leave open | — |
+| Open: insight rules | Exact generation | Four kinds implemented; others not specified | `insights.ts`; PRD | OPEN DECISION | Do not invent new kinds until decided | — |
+| Open: auth, monetization, geo | — | Not implemented | PRD | OPEN DECISION | Remain open | — |
