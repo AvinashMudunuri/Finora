@@ -7,10 +7,14 @@ import type { AccountServiceDependencies } from "../src/application/accounts/ser
 import { listAccounts } from "../src/application/accounts/service.ts";
 import type { CardServiceDependencies } from "../src/application/cards/service.ts";
 import { listCards } from "../src/application/cards/service.ts";
+import type { TransactionServiceDependencies } from "../src/application/transactions/service.ts";
+import { listStoredTransactions } from "../src/application/transactions/service.ts";
 import { handleAccountHttp, injectAccountBootstrap } from "./accountHttp.ts";
 import { handleCardHttp, injectCardBootstrap } from "./cardHttp.ts";
+import { handleTransactionHttp, injectTransactionBootstrap } from "./transactionHttp.ts";
 import { JsonFileAccountStore } from "./jsonFileAccountStore.ts";
 import { JsonFileCardStore } from "./jsonFileCardStore.ts";
+import { JsonFileTransactionStore } from "./jsonFileTransactionStore.ts";
 
 const CONTENT_TYPES: Record<string, string> = {
   ".css": "text/css; charset=utf-8",
@@ -39,9 +43,18 @@ export function createCardDependencies(storePath: string): CardServiceDependenci
   };
 }
 
+export function createTransactionDependencies(
+  storePath: string,
+): TransactionServiceDependencies {
+  return {
+    store: new JsonFileTransactionStore(storePath),
+  };
+}
+
 export function createAccountRequestListener(options: {
   dependencies: AccountServiceDependencies;
   cardDependencies?: CardServiceDependencies;
+  transactionDependencies?: TransactionServiceDependencies;
   staticDir?: string;
 }): (request: IncomingMessage, response: ServerResponse) => void {
   return (request, response) => {
@@ -66,6 +79,17 @@ export function createAccountRequestListener(options: {
         }
       }
 
+      if (options.transactionDependencies) {
+        const handledTransaction = await handleTransactionHttp(
+          options.transactionDependencies,
+          request,
+          response,
+        );
+        if (handledTransaction || response.writableEnded) {
+          return;
+        }
+      }
+
       if (options.staticDir === undefined) {
         response.statusCode = 404;
         response.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -77,6 +101,7 @@ export function createAccountRequestListener(options: {
         options.staticDir,
         options.dependencies,
         options.cardDependencies,
+        options.transactionDependencies,
         request,
         response,
       );
@@ -87,6 +112,7 @@ export function createAccountRequestListener(options: {
 export async function startAccountServer(options: {
   storePath: string;
   cardStorePath?: string;
+  transactionStorePath?: string;
   host?: string;
   port?: number;
   staticDir?: string;
@@ -95,10 +121,15 @@ export async function startAccountServer(options: {
   const cardDependencies = createCardDependencies(
     options.cardStorePath ?? join(dirname(options.storePath), "cards.json"),
   );
+  const transactionDependencies = createTransactionDependencies(
+    options.transactionStorePath ??
+      join(dirname(options.storePath), "transactions.json"),
+  );
   const server = createServer(
     createAccountRequestListener({
       dependencies,
       cardDependencies,
+      transactionDependencies,
       staticDir: options.staticDir,
     }),
   );
@@ -136,6 +167,7 @@ function serveStatic(
   staticDir: string,
   dependencies: AccountServiceDependencies,
   cardDependencies: CardServiceDependencies | undefined,
+  transactionDependencies: TransactionServiceDependencies | undefined,
   request: IncomingMessage,
   response: ServerResponse,
 ): void {
@@ -167,6 +199,12 @@ function serveStatic(
     );
     if (cardDependencies) {
       html = injectCardBootstrap(html, listCards(cardDependencies.store));
+    }
+    if (transactionDependencies) {
+      html = injectTransactionBootstrap(
+        html,
+        listStoredTransactions(transactionDependencies.store),
+      );
     }
     response.statusCode = 200;
     response.setHeader("Content-Type", "text/html; charset=utf-8");

@@ -37,6 +37,10 @@ export default defineConfig({
             urlPattern: /\/api\/cards/,
             handler: "NetworkOnly",
           },
+          {
+            urlPattern: /\/api\/transactions/,
+            handler: "NetworkOnly",
+          },
         ],
       },
     }),

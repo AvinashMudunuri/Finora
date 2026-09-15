@@ -2,6 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import type { CardGateway } from "../application/cards/contract.ts";
+import type { TransactionGateway } from "../application/transactions/contract.ts";
 import { CARD_BACKEND_MIGRATED_KEY } from "../application/cards/migration.ts";
 import {
   fixtureAccounts,
@@ -12,7 +13,7 @@ import {
 } from "../data/fixtures.ts";
 import { calculateSpendingChange } from "../domain/calculations.ts";
 import { formatCurrency, formatMonth } from "../domain/finance.ts";
-import type { Card } from "../domain/types.ts";
+import type { Card, Transaction } from "../domain/types.ts";
 import { createCard, updateCard } from "../domain/validate.ts";
 import App from "./App.tsx";
 
@@ -526,5 +527,111 @@ describe("Finora card backend integration", () => {
     );
     const detail = screen.getByRole("region", { name: "Dinner — Riverview" });
     expect(within(detail).getByText("Primary Visa")).toBeInTheDocument();
+  });
+});
+
+function memoryTransactionGateway(
+  initial: Transaction[] = fixtureTransactions,
+): TransactionGateway {
+  const transactions = initial.map((transaction) => ({ ...transaction }));
+  return {
+    list: async () => transactions.map((transaction) => ({ ...transaction })),
+  };
+}
+
+describe("Finora transaction backend integration", () => {
+  it("loads fixture transactions through the transaction gateway", async () => {
+    const user = userEvent.setup();
+    render(<App transactionGateway={memoryTransactionGateway()} />);
+
+    await user.click(screen.getByRole("button", { name: "Transactions" }));
+    const list = await waitFor(() => screen.getByRole("list", { name: "Transaction list" }));
+    expect(within(list).getByText("Payroll — Acme Corp")).toBeInTheDocument();
+    expect(within(list).getByText("Dinner — Riverview")).toBeInTheDocument();
+    expect(within(list).getByText("Dividend — VTI")).toBeInTheDocument();
+  });
+
+  it("filters gateway-backed transactions by card and search", async () => {
+    const user = userEvent.setup();
+    render(<App transactionGateway={memoryTransactionGateway()} />);
+
+    await user.click(screen.getByRole("button", { name: "Transactions" }));
+    const list = await waitFor(() => screen.getByRole("list", { name: "Transaction list" }));
+    expect(within(list).getByText("Payroll — Acme Corp")).toBeInTheDocument();
+
+    await user.click(
+      within(screen.getByRole("group", { name: "Filter transactions" })).getByRole(
+        "button",
+        { name: "Show only Visa Rewards" },
+      ),
+    );
+    expect(within(list).getByText("Dinner — Riverview")).toBeInTheDocument();
+    expect(within(list).queryByText("Payroll — Acme Corp")).not.toBeInTheDocument();
+
+    await user.click(
+      within(screen.getByRole("group", { name: "Filter transactions" })).getByRole(
+        "button",
+        { name: "All transactions" },
+      ),
+    );
+    await user.type(screen.getByLabelText("Search transactions"), "Riverview");
+    expect(within(list).getByText("Dinner — Riverview")).toBeInTheDocument();
+    expect(within(list).queryByText("Payroll — Acme Corp")).not.toBeInTheDocument();
+  });
+
+  it("keeps card-linked transactions after a card rename", async () => {
+    const user = userEvent.setup();
+    render(
+      <App
+        cardGateway={memoryCardGateway()}
+        transactionGateway={memoryTransactionGateway()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Cards" }));
+    await user.click(screen.getByRole("button", { name: /^Visa Rewards/ }));
+    await user.click(screen.getByRole("button", { name: "Edit this card" }));
+    const name = screen.getByLabelText("Card name");
+    await user.clear(name);
+    await user.type(name, "Primary Visa");
+    await user.click(screen.getByRole("button", { name: "Save card changes" }));
+
+    await user.click(screen.getByRole("button", { name: "Transactions" }));
+    await waitFor(() => {
+      expect(screen.getByText("Dinner — Riverview")).toBeInTheDocument();
+    });
+    await user.click(
+      within(screen.getByRole("group", { name: "Filter transactions" })).getByRole(
+        "button",
+        { name: "Show only Primary Visa" },
+      ),
+    );
+    expect(screen.getByText("Dinner — Riverview")).toBeInTheDocument();
+    expect(screen.queryByText("Payroll — Acme Corp")).not.toBeInTheDocument();
+  });
+
+  it("surfaces a transaction backend failure without changing fixture calculations in memory", async () => {
+    const user = userEvent.setup();
+    render(
+      <App
+        transactionGateway={{
+          list: async () => {
+            throw new Error("offline");
+          },
+        }}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Transactions are temporarily unavailable."),
+      ).toBeInTheDocument();
+    });
+    await user.click(screen.getByRole("button", { name: "Transactions" }));
+    expect(
+      within(screen.getByRole("list", { name: "Transaction list" })).getByText(
+        "Payroll — Acme Corp",
+      ),
+    ).toBeInTheDocument();
   });
 });
