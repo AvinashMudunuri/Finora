@@ -8,6 +8,15 @@ import {
   ACCOUNT_BACKEND_MIGRATED_KEY,
   migrateLocalAccounts,
 } from "../application/accounts/migration.ts";
+import { readCardBootstrap } from "../application/cards/readBootstrap.ts";
+import {
+  CARD_UNAVAILABLE_MESSAGE,
+  type CardGateway,
+} from "../application/cards/contract.ts";
+import {
+  CARD_BACKEND_MIGRATED_KEY,
+  migrateLocalCards,
+} from "../application/cards/migration.ts";
 import { Accounts } from "../components/Accounts.tsx";
 import { Cards } from "../components/Cards.tsx";
 import { Dashboard } from "../components/Dashboard.tsx";
@@ -16,11 +25,14 @@ import { Spending } from "../components/Spending.tsx";
 import { Transactions } from "../components/Transactions.tsx";
 import {
   fixtureAccounts,
+  fixtureCards,
   loadAppCards,
   loadAppTransactions,
   loadManagedCards,
   loadManagedLedger,
+  peekManagedCards,
   peekManagedLedgerAccounts,
+  retireManagedCards,
   retireManagedLedgerAccounts,
   saveManagedCards,
   saveManagedLedger,
@@ -41,6 +53,7 @@ const appTransactions = loadAppTransactions();
 
 export type AppProps = {
   accountGateway?: AccountGateway;
+  cardGateway?: CardGateway;
 };
 
 function managedStorage(): Storage | null {
@@ -75,7 +88,7 @@ type AppView =
   | "spending"
   | "insights";
 
-export default function App({ accountGateway }: AppProps) {
+export default function App({ accountGateway, cardGateway }: AppProps) {
   const [view, setView] = useState<AppView>("dashboard");
   const [accounts, setAccounts] = useState<Account[]>(() =>
     accountGateway
@@ -83,9 +96,14 @@ export default function App({ accountGateway }: AppProps) {
       : initialLocalLedger().accounts,
   );
   const [cards, setCards] = useState<Card[]>(() =>
-    accountGateway ? initialCards() : initialLocalLedger().cards,
+    cardGateway
+      ? (readCardBootstrap() ?? appCards)
+      : accountGateway
+        ? initialCards()
+        : initialLocalLedger().cards,
   );
   const [accountLoadError, setAccountLoadError] = useState("");
+  const [cardLoadError, setCardLoadError] = useState("");
   const [selectedAccountId, setSelectedAccountId] = useState(
     () => accounts[0]?.id ?? "",
   );
@@ -120,23 +138,39 @@ export default function App({ accountGateway }: AppProps) {
             });
 
         if (!alreadyMigrated) {
-          const nextCards = loadManagedCards(
-            appTransactions,
-            fixtureAccounts,
-            storage,
-            appCards,
-          );
-          saveManagedCards(
-            storage,
-            nextCards,
-            appTransactions,
-            fixtureAccounts,
-          );
+          if (!cardGateway) {
+            const nextCards = loadManagedCards(
+              appTransactions,
+              fixtureAccounts,
+              storage,
+              appCards,
+            );
+            saveManagedCards(
+              storage,
+              nextCards,
+              appTransactions,
+              fixtureAccounts,
+            );
+            if (!cancelled) {
+              setCards(nextCards);
+            }
+          } else if (storage.getItem(CARD_BACKEND_MIGRATED_KEY) !== "1") {
+            const leftoverCards = peekManagedCards(
+              storage,
+              appTransactions,
+              fixtureAccounts,
+            );
+            if (leftoverCards && leftoverCards.length > 0) {
+              saveManagedCards(
+                storage,
+                leftoverCards,
+                appTransactions,
+                fixtureAccounts,
+              );
+            }
+          }
           retireManagedLedgerAccounts(storage);
           storage.setItem(ACCOUNT_BACKEND_MIGRATED_KEY, "1");
-          if (!cancelled) {
-            setCards(nextCards);
-          }
         }
 
         if (!cancelled) {
@@ -158,7 +192,56 @@ export default function App({ accountGateway }: AppProps) {
     return () => {
       cancelled = true;
     };
-  }, [accountGateway]);
+  }, [accountGateway, cardGateway]);
+
+  useEffect(() => {
+    if (!cardGateway || typeof window === "undefined") {
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const storage = window.localStorage;
+        const alreadyMigrated = storage.getItem(CARD_BACKEND_MIGRATED_KEY) === "1";
+        const backendCards = await cardGateway.list();
+        const local = alreadyMigrated
+          ? null
+          : peekManagedCards(storage, appTransactions, fixtureAccounts);
+        const nextCards = alreadyMigrated
+          ? backendCards
+          : await migrateLocalCards(cardGateway, {
+              backend: backendCards,
+              local,
+              fixtures: fixtureCards,
+            });
+
+        if (!alreadyMigrated) {
+          retireManagedCards(storage);
+          storage.setItem(CARD_BACKEND_MIGRATED_KEY, "1");
+        }
+
+        if (!cancelled) {
+          setCards(nextCards);
+          setCardLoadError("");
+          setSelectedCardId((current) =>
+            nextCards.some((card) => card.id === current)
+              ? current
+              : (nextCards[0]?.id ?? ""),
+          );
+        }
+      } catch {
+        if (!cancelled) {
+          setCardLoadError(CARD_UNAVAILABLE_MESSAGE);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [cardGateway]);
 
   const persistLocalLedger = (
     next: ManagedLedgerSnapshot,
@@ -204,6 +287,19 @@ export default function App({ accountGateway }: AppProps) {
 
     setCards(nextCards);
     return { ok: true, value: true };
+  };
+
+  const persistRemoteCard = (
+    operation: Promise<EntityMutationResult<Card>>,
+    onSuccess: (card: Card) => void,
+  ): void => {
+    void operation.then((remote) => {
+      if (!remote.ok) {
+        setCardLoadError(remote.errors.form ?? CARD_UNAVAILABLE_MESSAGE);
+        return;
+      }
+      onSuccess(remote.value);
+    });
   };
 
   const persistRemoteAccount = (
@@ -298,6 +394,21 @@ export default function App({ accountGateway }: AppProps) {
       return created;
     }
 
+    if (cardGateway) {
+      persistRemoteCard(cardGateway.create(draft), (card) => {
+        setCards((current) => {
+          if (current.some((item) => item.id === card.id)) {
+            return current.map((item) => (item.id === card.id ? card : item));
+          }
+          return [...current, card];
+        });
+        setSelectedCardId(card.id);
+      });
+      setCards([...cards, created.value]);
+      setSelectedCardId(created.value.id);
+      return created;
+    }
+
     const saved = accountGateway
       ? persistCards([...cards, created.value])
       : persistLocalLedger({
@@ -321,6 +432,16 @@ export default function App({ accountGateway }: AppProps) {
       return updated;
     }
 
+    if (cardGateway) {
+      persistRemoteCard(cardGateway.update(id, draft), (card) => {
+        setCards((current) =>
+          current.map((item) => (item.id === id ? card : item)),
+        );
+      });
+      setCards(cards.map((card) => (card.id === id ? updated.value : card)));
+      return updated;
+    }
+
     const saved = accountGateway
       ? persistCards(
           cards.map((card) => (card.id === id ? updated.value : card)),
@@ -340,7 +461,7 @@ export default function App({ accountGateway }: AppProps) {
     setView("insights");
   };
 
-  const systemNotice = accountLoadError;
+  const systemNotice = accountLoadError || cardLoadError;
 
   if (view === "accounts") {
     return (

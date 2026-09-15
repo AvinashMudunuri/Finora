@@ -468,6 +468,64 @@ export function saveManagedCards(
   );
 }
 
+export function peekManagedCards(
+  storage: StorageLike | null,
+  transactions: Transaction[],
+  accountsForValidation: Account[],
+): Card[] | null {
+  if (!storage) {
+    return null;
+  }
+
+  const cardsRaw = storage.getItem(MANAGED_CARDS_STORAGE_KEY);
+  if (cardsRaw) {
+    try {
+      const parsed = JSON.parse(cardsRaw) as {
+        version?: unknown;
+        cards?: unknown;
+      };
+      if (parsed.version !== 1 || !Array.isArray(parsed.cards)) {
+        return null;
+      }
+      const cards = parsed.cards as Card[];
+      assertValidFinanceData(accountsForValidation, cards, transactions);
+      return cards;
+    } catch {
+      return null;
+    }
+  }
+
+  const raw = storage.getItem(MANAGED_LEDGER_STORAGE_KEY);
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as {
+      version?: unknown;
+      accounts?: unknown;
+      cards?: unknown;
+    };
+    if (
+      parsed.version !== 1 ||
+      !Array.isArray(parsed.accounts) ||
+      !Array.isArray(parsed.cards)
+    ) {
+      return null;
+    }
+    const accounts = parsed.accounts as Account[];
+    const cards = parsed.cards as Card[];
+    assertValidFinanceData(accounts, cards, transactions);
+    return cards;
+  } catch {
+    return null;
+  }
+}
+
 export function retireManagedLedgerAccounts(storage: StorageLike | null): void {
   storage?.removeItem?.(MANAGED_LEDGER_STORAGE_KEY);
+}
+
+export function retireManagedCards(storage: StorageLike | null): void {
+  storage?.removeItem?.(MANAGED_CARDS_STORAGE_KEY);
 }

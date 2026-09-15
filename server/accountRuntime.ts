@@ -1,12 +1,16 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
-import { extname, join, normalize, sep } from "node:path";
+import { dirname, extname, join, normalize, sep } from "node:path";
 import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
 
-import { fixtureCards, fixtureTransactions } from "../src/data/fixtures.ts";
+import { fixtureAccounts, fixtureCards, fixtureTransactions } from "../src/data/fixtures.ts";
 import type { AccountServiceDependencies } from "../src/application/accounts/service.ts";
 import { listAccounts } from "../src/application/accounts/service.ts";
+import type { CardServiceDependencies } from "../src/application/cards/service.ts";
+import { listCards } from "../src/application/cards/service.ts";
 import { handleAccountHttp, injectAccountBootstrap } from "./accountHttp.ts";
+import { handleCardHttp, injectCardBootstrap } from "./cardHttp.ts";
 import { JsonFileAccountStore } from "./jsonFileAccountStore.ts";
+import { JsonFileCardStore } from "./jsonFileCardStore.ts";
 
 const CONTENT_TYPES: Record<string, string> = {
   ".css": "text/css; charset=utf-8",
@@ -27,15 +31,39 @@ export function createAccountDependencies(storePath: string): AccountServiceDepe
   };
 }
 
+export function createCardDependencies(storePath: string): CardServiceDependencies {
+  return {
+    store: new JsonFileCardStore(storePath),
+    accounts: fixtureAccounts,
+    transactions: fixtureTransactions,
+  };
+}
+
 export function createAccountRequestListener(options: {
   dependencies: AccountServiceDependencies;
+  cardDependencies?: CardServiceDependencies;
   staticDir?: string;
 }): (request: IncomingMessage, response: ServerResponse) => void {
   return (request, response) => {
     void (async () => {
-      const handled = await handleAccountHttp(options.dependencies, request, response);
-      if (handled || response.writableEnded) {
+      const handledAccount = await handleAccountHttp(
+        options.dependencies,
+        request,
+        response,
+      );
+      if (handledAccount || response.writableEnded) {
         return;
+      }
+
+      if (options.cardDependencies) {
+        const handledCard = await handleCardHttp(
+          options.cardDependencies,
+          request,
+          response,
+        );
+        if (handledCard || response.writableEnded) {
+          return;
+        }
       }
 
       if (options.staticDir === undefined) {
@@ -45,21 +73,32 @@ export function createAccountRequestListener(options: {
         return;
       }
 
-      serveStatic(options.staticDir, options.dependencies, request, response);
+      serveStatic(
+        options.staticDir,
+        options.dependencies,
+        options.cardDependencies,
+        request,
+        response,
+      );
     })();
   };
 }
 
 export async function startAccountServer(options: {
   storePath: string;
+  cardStorePath?: string;
   host?: string;
   port?: number;
   staticDir?: string;
 }): Promise<{ port: number; close: () => Promise<void>; server: Server }> {
   const dependencies = createAccountDependencies(options.storePath);
+  const cardDependencies = createCardDependencies(
+    options.cardStorePath ?? join(dirname(options.storePath), "cards.json"),
+  );
   const server = createServer(
     createAccountRequestListener({
       dependencies,
+      cardDependencies,
       staticDir: options.staticDir,
     }),
   );
@@ -96,6 +135,7 @@ export async function startAccountServer(options: {
 function serveStatic(
   staticDir: string,
   dependencies: AccountServiceDependencies,
+  cardDependencies: CardServiceDependencies | undefined,
   request: IncomingMessage,
   response: ServerResponse,
 ): void {
@@ -121,10 +161,13 @@ function serveStatic(
   }
 
   if (filePath.endsWith("index.html")) {
-    const html = injectAccountBootstrap(
+    let html = injectAccountBootstrap(
       readFileSync(filePath, "utf8"),
       listAccounts(dependencies.store),
     );
+    if (cardDependencies) {
+      html = injectCardBootstrap(html, listCards(cardDependencies.store));
+    }
     response.statusCode = 200;
     response.setHeader("Content-Type", "text/html; charset=utf-8");
     response.end(html);

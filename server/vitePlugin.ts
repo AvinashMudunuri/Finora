@@ -2,22 +2,34 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Connect, Plugin } from "vite";
 
 import { listAccounts } from "../src/application/accounts/service.ts";
+import { listCards } from "../src/application/cards/service.ts";
 import { handleAccountHttp, injectAccountBootstrap } from "./accountHttp.ts";
-import { createAccountDependencies } from "./accountRuntime.ts";
+import { handleCardHttp, injectCardBootstrap } from "./cardHttp.ts";
+import { createAccountDependencies, createCardDependencies } from "./accountRuntime.ts";
 import { defaultAccountStorePath } from "./jsonFileAccountStore.ts";
+import { defaultCardStorePath } from "./jsonFileCardStore.ts";
 
-export function finoraAccountApi(storePath: string = defaultAccountStorePath()): Plugin {
+export function finoraAccountApi(
+  storePath: string = defaultAccountStorePath(),
+  cardStorePath: string = defaultCardStorePath(),
+): Plugin {
   const dependencies = createAccountDependencies(storePath);
+  const cardDependencies = createCardDependencies(cardStorePath);
 
   const middleware: Connect.NextHandleFunction = (
     request: IncomingMessage,
     response: ServerResponse,
     next: Connect.NextFunction,
   ) => {
-    void handleAccountHttp(dependencies, request, response).then((handled) => {
-      if (!handled && !response.writableEnded) {
-        next();
+    void handleAccountHttp(dependencies, request, response).then((handledAccount) => {
+      if (handledAccount || response.writableEnded) {
+        return;
       }
+      return handleCardHttp(cardDependencies, request, response).then((handledCard) => {
+        if (!handledCard && !response.writableEnded) {
+          next();
+        }
+      });
     });
   };
 
@@ -33,7 +45,10 @@ export function finoraAccountApi(storePath: string = defaultAccountStorePath()):
       order: "pre",
       handler(html) {
         try {
-          return injectAccountBootstrap(html, listAccounts(dependencies.store));
+          return injectCardBootstrap(
+            injectAccountBootstrap(html, listAccounts(dependencies.store)),
+            listCards(cardDependencies.store),
+          );
         } catch {
           return html;
         }

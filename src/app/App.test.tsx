@@ -1,10 +1,41 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { fixtureTransactions } from "../data/fixtures.ts";
+import type { CardGateway } from "../application/cards/contract.ts";
+import { CARD_BACKEND_MIGRATED_KEY } from "../application/cards/migration.ts";
+import {
+  fixtureAccounts,
+  fixtureCards,
+  fixtureTransactions,
+  MANAGED_CARDS_STORAGE_KEY,
+  saveManagedCards,
+} from "../data/fixtures.ts";
 import { calculateSpendingChange } from "../domain/calculations.ts";
 import { formatCurrency, formatMonth } from "../domain/finance.ts";
+import type { Card } from "../domain/types.ts";
+import { createCard, updateCard } from "../domain/validate.ts";
 import App from "./App.tsx";
+
+function memoryCardGateway(initial: Card[] = fixtureCards): CardGateway {
+  let cards = initial.map((card) => ({ ...card }));
+  return {
+    list: async () => cards.map((card) => ({ ...card })),
+    create: async (draft) => {
+      const created = createCard(draft, cards);
+      if (created.ok) {
+        cards = [...cards, created.value];
+      }
+      return created;
+    },
+    update: async (id, draft) => {
+      const updated = updateCard(id, draft, cards, fixtureTransactions, fixtureAccounts);
+      if (updated.ok) {
+        cards = cards.map((card) => (card.id === id ? updated.value : card));
+      }
+      return updated;
+    },
+  };
+}
 
 describe("Finora app navigation", () => {
   it("opens the cards experience from the primary navigation", async () => {
@@ -364,5 +395,136 @@ describe("Finora account and card management", () => {
     render(<App />);
     await user.click(screen.getByRole("button", { name: "Accounts" }));
     expect(screen.getByRole("button", { name: /^Travel Fund/ })).toBeInTheDocument();
+  });
+
+  it("persists a created card across a remount", async () => {
+    const user = userEvent.setup();
+    const first = render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Cards" }));
+    await user.click(screen.getByRole("button", { name: "Add card" }));
+    await user.type(screen.getByLabelText("Card name"), "Store Card");
+    await user.type(screen.getByLabelText("Card issuer"), "Northlake Bank");
+    await user.type(screen.getByLabelText("Credit limit"), "1000");
+    await user.type(screen.getByLabelText("Outstanding balance"), "100");
+    await user.type(screen.getByLabelText("Statement end"), "2026-10-08");
+    await user.type(screen.getByLabelText("Payment due date"), "2026-10-22");
+    await user.type(screen.getByLabelText("Minimum payment"), "25");
+    await user.click(screen.getByRole("button", { name: "Save new card" }));
+    first.unmount();
+
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Cards" }));
+    expect(screen.getByRole("button", { name: /^Store Card/ })).toBeInTheDocument();
+  });
+});
+
+describe("Finora card backend integration", () => {
+  it("loads, creates, and edits cards through the card gateway", async () => {
+    const user = userEvent.setup();
+    const cardGateway = memoryCardGateway();
+    render(<App cardGateway={cardGateway} />);
+
+    await user.click(screen.getByRole("button", { name: "Cards" }));
+    expect(screen.getByRole("button", { name: /^Visa Rewards/ })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Add card" }));
+    await user.type(screen.getByLabelText("Card name"), "Store Card");
+    await user.type(screen.getByLabelText("Card issuer"), "Northlake Bank");
+    await user.type(screen.getByLabelText("Credit limit"), "1000");
+    await user.type(screen.getByLabelText("Outstanding balance"), "100");
+    await user.type(screen.getByLabelText("Statement end"), "2026-10-08");
+    await user.type(screen.getByLabelText("Payment due date"), "2026-10-22");
+    await user.type(screen.getByLabelText("Minimum payment"), "25");
+    await user.click(screen.getByRole("button", { name: "Save new card" }));
+
+    expect(screen.getByRole("status")).toHaveTextContent("Card created.");
+    expect(screen.getByRole("button", { name: /^Store Card/ })).toBeInTheDocument();
+    expect((await cardGateway.list()).map((card) => card.name)).toContain("Store Card");
+
+    await user.click(screen.getByRole("button", { name: /^Visa Rewards/ }));
+    await user.click(screen.getByRole("button", { name: "Edit this card" }));
+    const name = screen.getByLabelText("Card name");
+    await user.clear(name);
+    await user.type(name, "Primary Visa");
+    await user.click(screen.getByRole("button", { name: "Save card changes" }));
+
+    expect(screen.getByRole("status")).toHaveTextContent("Card updated.");
+    expect(screen.getByRole("region", { name: "Primary Visa" })).toBeInTheDocument();
+    expect(screen.getByText("Dinner — Riverview")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Dashboard" }));
+    expect(screen.getByRole("heading", { name: "Card payment due" })).toBeInTheDocument();
+  });
+
+  it("surfaces card validation from the existing domain rules", async () => {
+    const user = userEvent.setup();
+    render(<App cardGateway={memoryCardGateway()} />);
+
+    await user.click(screen.getByRole("button", { name: "Cards" }));
+    await user.click(screen.getByRole("button", { name: "Add card" }));
+    await user.type(screen.getByLabelText("Card issuer"), "Northlake Bank");
+    await user.type(screen.getByLabelText("Credit limit"), "1000");
+    await user.type(screen.getByLabelText("Outstanding balance"), "100");
+    await user.type(screen.getByLabelText("Statement end"), "2026-10-08");
+    await user.type(screen.getByLabelText("Payment due date"), "2026-10-22");
+    await user.type(screen.getByLabelText("Minimum payment"), "25");
+    await user.click(screen.getByRole("button", { name: "Save new card" }));
+
+    expect(screen.getByText("Card name is required.")).toBeInTheDocument();
+  });
+
+  it("migrates managed local cards onto a fixture-seeded backend and retires localStorage", async () => {
+    saveManagedCards(
+      window.localStorage,
+      [
+        ...fixtureCards,
+        {
+          id: "card-1",
+          name: "Store Card",
+          issuer: "Northlake Bank",
+          creditLimit: 1000,
+          outstandingBalance: 100,
+          availableCredit: 900,
+          currency: "USD",
+          statementPeriodEnd: "2026-10-08",
+          paymentDueDate: "2026-10-22",
+          minimumPayment: 25,
+          paymentStatus: "current",
+        },
+      ],
+      fixtureTransactions,
+      fixtureAccounts,
+    );
+    const cardGateway = memoryCardGateway();
+    const user = userEvent.setup();
+    render(<App cardGateway={cardGateway} />);
+
+    await user.click(screen.getByRole("button", { name: "Cards" }));
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /^Store Card/ })).toBeInTheDocument();
+    });
+    expect(window.localStorage.getItem(MANAGED_CARDS_STORAGE_KEY)).toBeNull();
+    expect(window.localStorage.getItem(CARD_BACKEND_MIGRATED_KEY)).toBe("1");
+    expect((await cardGateway.list()).map((card) => card.name)).toContain("Store Card");
+  });
+
+  it("keeps a renamed card's fixture transactions inspectable", async () => {
+    const user = userEvent.setup();
+    render(<App cardGateway={memoryCardGateway()} />);
+
+    await user.click(screen.getByRole("button", { name: "Cards" }));
+    await user.click(screen.getByRole("button", { name: /^Visa Rewards/ }));
+    await user.click(screen.getByRole("button", { name: "Edit this card" }));
+    const name = screen.getByLabelText("Card name");
+    await user.clear(name);
+    await user.type(name, "Primary Visa");
+    await user.click(screen.getByRole("button", { name: "Save card changes" }));
+
+    await user.click(
+      screen.getByRole("button", { name: "View Dinner — Riverview" }),
+    );
+    const detail = screen.getByRole("region", { name: "Dinner — Riverview" });
+    expect(within(detail).getByText("Primary Visa")).toBeInTheDocument();
   });
 });
