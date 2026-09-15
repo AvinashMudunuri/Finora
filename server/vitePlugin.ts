@@ -3,18 +3,27 @@ import type { Connect, Plugin } from "vite";
 
 import { listAccounts } from "../src/application/accounts/service.ts";
 import { listCards } from "../src/application/cards/service.ts";
+import { listStoredTransactions } from "../src/application/transactions/service.ts";
 import { handleAccountHttp, injectAccountBootstrap } from "./accountHttp.ts";
 import { handleCardHttp, injectCardBootstrap } from "./cardHttp.ts";
-import { createAccountDependencies, createCardDependencies } from "./accountRuntime.ts";
+import { handleTransactionHttp, injectTransactionBootstrap } from "./transactionHttp.ts";
+import {
+  createAccountDependencies,
+  createCardDependencies,
+  createTransactionDependencies,
+} from "./accountRuntime.ts";
 import { defaultAccountStorePath } from "./jsonFileAccountStore.ts";
 import { defaultCardStorePath } from "./jsonFileCardStore.ts";
+import { defaultTransactionStorePath } from "./jsonFileTransactionStore.ts";
 
 export function finoraAccountApi(
   storePath: string = defaultAccountStorePath(),
   cardStorePath: string = defaultCardStorePath(),
+  transactionStorePath: string = defaultTransactionStorePath(),
 ): Plugin {
   const dependencies = createAccountDependencies(storePath);
   const cardDependencies = createCardDependencies(cardStorePath);
+  const transactionDependencies = createTransactionDependencies(transactionStorePath);
 
   const middleware: Connect.NextHandleFunction = (
     request: IncomingMessage,
@@ -26,9 +35,18 @@ export function finoraAccountApi(
         return;
       }
       return handleCardHttp(cardDependencies, request, response).then((handledCard) => {
-        if (!handledCard && !response.writableEnded) {
-          next();
+        if (handledCard || response.writableEnded) {
+          return;
         }
+        return handleTransactionHttp(
+          transactionDependencies,
+          request,
+          response,
+        ).then((handledTransaction) => {
+          if (!handledTransaction && !response.writableEnded) {
+            next();
+          }
+        });
       });
     });
   };
@@ -45,9 +63,12 @@ export function finoraAccountApi(
       order: "pre",
       handler(html) {
         try {
-          return injectCardBootstrap(
-            injectAccountBootstrap(html, listAccounts(dependencies.store)),
-            listCards(cardDependencies.store),
+          return injectTransactionBootstrap(
+            injectCardBootstrap(
+              injectAccountBootstrap(html, listAccounts(dependencies.store)),
+              listCards(cardDependencies.store),
+            ),
+            listStoredTransactions(transactionDependencies.store),
           );
         } catch {
           return html;

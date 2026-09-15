@@ -17,6 +17,11 @@ import {
   CARD_BACKEND_MIGRATED_KEY,
   migrateLocalCards,
 } from "../application/cards/migration.ts";
+import { readTransactionBootstrap } from "../application/transactions/readBootstrap.ts";
+import {
+  TRANSACTION_UNAVAILABLE_MESSAGE,
+  type TransactionGateway,
+} from "../application/transactions/contract.ts";
 import { Accounts } from "../components/Accounts.tsx";
 import { Cards } from "../components/Cards.tsx";
 import { Dashboard } from "../components/Dashboard.tsx";
@@ -39,7 +44,13 @@ import {
   usesManagedLedger,
   type ManagedLedgerSnapshot,
 } from "../data/fixtures.ts";
-import type { Account, AccountDraft, Card, CardDraft } from "../domain/types.ts";
+import type {
+  Account,
+  AccountDraft,
+  Card,
+  CardDraft,
+  Transaction,
+} from "../domain/types.ts";
 import {
   createAccount,
   createCard,
@@ -54,6 +65,7 @@ const appTransactions = loadAppTransactions();
 export type AppProps = {
   accountGateway?: AccountGateway;
   cardGateway?: CardGateway;
+  transactionGateway?: TransactionGateway;
 };
 
 function managedStorage(): Storage | null {
@@ -88,7 +100,11 @@ type AppView =
   | "spending"
   | "insights";
 
-export default function App({ accountGateway, cardGateway }: AppProps) {
+export default function App({
+  accountGateway,
+  cardGateway,
+  transactionGateway,
+}: AppProps) {
   const [view, setView] = useState<AppView>("dashboard");
   const [accounts, setAccounts] = useState<Account[]>(() =>
     accountGateway
@@ -102,8 +118,14 @@ export default function App({ accountGateway, cardGateway }: AppProps) {
         ? initialCards()
         : initialLocalLedger().cards,
   );
+  const [transactions, setTransactions] = useState<Transaction[]>(() =>
+    transactionGateway
+      ? (readTransactionBootstrap() ?? appTransactions)
+      : appTransactions,
+  );
   const [accountLoadError, setAccountLoadError] = useState("");
   const [cardLoadError, setCardLoadError] = useState("");
+  const [transactionLoadError, setTransactionLoadError] = useState("");
   const [selectedAccountId, setSelectedAccountId] = useState(
     () => accounts[0]?.id ?? "",
   );
@@ -111,7 +133,7 @@ export default function App({ accountGateway, cardGateway }: AppProps) {
     () => cards[0]?.id ?? "",
   );
   const [selectedTransactionId, setSelectedTransactionId] = useState(
-    appTransactions[0]?.id ?? "",
+    () => transactions[0]?.id ?? "",
   );
 
   useEffect(() => {
@@ -243,6 +265,37 @@ export default function App({ accountGateway, cardGateway }: AppProps) {
     };
   }, [cardGateway]);
 
+  useEffect(() => {
+    if (!transactionGateway || typeof window === "undefined") {
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const nextTransactions = await transactionGateway.list();
+        if (!cancelled) {
+          setTransactions(nextTransactions);
+          setTransactionLoadError("");
+          setSelectedTransactionId((current) =>
+            nextTransactions.some((transaction) => transaction.id === current)
+              ? current
+              : (nextTransactions[0]?.id ?? ""),
+          );
+        }
+      } catch {
+        if (!cancelled) {
+          setTransactionLoadError(TRANSACTION_UNAVAILABLE_MESSAGE);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [transactionGateway]);
+
   const persistLocalLedger = (
     next: ManagedLedgerSnapshot,
   ): EntityMutationResult<true> => {
@@ -358,7 +411,7 @@ export default function App({ accountGateway, cardGateway }: AppProps) {
     id: string,
     draft: AccountDraft,
   ): EntityMutationResult<Account> => {
-    const updated = updateAccount(id, draft, accounts, appTransactions, cards);
+    const updated = updateAccount(id, draft, accounts, transactions, cards);
     if (!updated.ok) {
       return updated;
     }
@@ -427,7 +480,7 @@ export default function App({ accountGateway, cardGateway }: AppProps) {
     id: string,
     draft: CardDraft,
   ): EntityMutationResult<Card> => {
-    const updated = updateCard(id, draft, cards, appTransactions, accounts);
+    const updated = updateCard(id, draft, cards, transactions, accounts);
     if (!updated.ok) {
       return updated;
     }
@@ -461,14 +514,14 @@ export default function App({ accountGateway, cardGateway }: AppProps) {
     setView("insights");
   };
 
-  const systemNotice = accountLoadError || cardLoadError;
+  const systemNotice = accountLoadError || cardLoadError || transactionLoadError;
 
   if (view === "accounts") {
     return (
       <Accounts
         accounts={accounts}
         cards={cards}
-        transactions={appTransactions}
+        transactions={transactions}
         selectedAccountId={selectedAccountId}
         systemNotice={systemNotice}
         onSelectAccount={setSelectedAccountId}
@@ -499,7 +552,7 @@ export default function App({ accountGateway, cardGateway }: AppProps) {
     return (
       <Cards
         cards={cards}
-        transactions={appTransactions}
+        transactions={transactions}
         selectedCardId={selectedCardId}
         systemNotice={systemNotice}
         onSelectCard={setSelectedCardId}
@@ -531,7 +584,7 @@ export default function App({ accountGateway, cardGateway }: AppProps) {
       <Transactions
         accounts={accounts}
         cards={cards}
-        transactions={appTransactions}
+        transactions={transactions}
         selectedTransactionId={selectedTransactionId}
         systemNotice={systemNotice}
         onSelectTransaction={setSelectedTransactionId}
@@ -565,7 +618,7 @@ export default function App({ accountGateway, cardGateway }: AppProps) {
       <Spending
         accounts={accounts}
         cards={cards}
-        transactions={appTransactions}
+        transactions={transactions}
         systemNotice={systemNotice}
         onShowDashboard={() => {
           setView("dashboard");
@@ -593,7 +646,7 @@ export default function App({ accountGateway, cardGateway }: AppProps) {
       <Insights
         accounts={accounts}
         cards={cards}
-        transactions={appTransactions}
+        transactions={transactions}
         systemNotice={systemNotice}
         onShowDashboard={() => {
           setView("dashboard");
@@ -626,7 +679,7 @@ export default function App({ accountGateway, cardGateway }: AppProps) {
     <Dashboard
       accounts={accounts}
       cards={cards}
-      transactions={appTransactions}
+      transactions={transactions}
       systemNotice={systemNotice}
       onShowAccounts={() => {
         setView("accounts");

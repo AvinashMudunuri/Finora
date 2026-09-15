@@ -30,10 +30,19 @@ Accounts and Cards are persisted through the same local Node HTTP process.
 
 - Accounts: `GET|POST /api/accounts`, `PUT /api/accounts/:id` → `data/accounts.json` or `FINORA_ACCOUNT_STORE`
 - Cards: `GET|POST /api/cards`, `PUT /api/cards/:id` → `data/cards.json` or `FINORA_CARD_STORE`
+- Transactions: `GET /api/transactions` → `data/transactions.json` or `FINORA_TRANSACTION_STORE`
 
-The backend reuses the existing Account and Card domain models and validation; it does not introduce a second financial model. Available credit is always `creditLimit - outstandingBalance`. Transactions remain fixture-backed.
+The backend reuses the existing Account, Card, and Transaction domain models and validation; it does not introduce a second financial model. Available credit is always `creditLimit - outstandingBalance`. The existing Transactions UI is read-only, so the Transactions API is GET-only. Missing transaction files seed the existing fixture dataset. There is no managed-transaction localStorage overlay.
 
 A previous combined ledger (`finora.managed-ledger.v1`) can push local Account edits into an unused fixture-seeded backend once. Managed Cards (`finora.managed-cards.v1`, or leftover ledger cards) can push local Card edits into an unused fixture-seeded backend once. After those handoffs, localStorage is no longer the production source of truth for Accounts or Cards.
+
+### Transactions API
+
+| Method | Path | Success | Failure |
+| --- | --- | --- | --- |
+| GET | `/api/transactions` | `{ "transactions": [...] }` newest date first, then transaction ID descending | `500 { "kind": "unavailable", "error": "Transactions are temporarily unavailable." }` |
+
+The Transactions product does not support create/edit, so POST/PUT are not provided. Responses never include filesystem paths or stack traces.
 
 ### Cards API
 
@@ -45,7 +54,7 @@ A previous combined ledger (`finora.managed-ledger.v1`) can push local Account e
 
 POST/PUT accept the existing Card draft fields: `name`, `issuer`, `creditLimit`, `outstandingBalance`, `statementPeriodEnd`, `paymentDueDate`, `minimumPayment`, `paymentStatus`. Client-provided `availableCredit` is ignored. Validation errors are a field map, not an array. Responses never include filesystem paths or stack traces.
 
-There is no authentication, bank connection, or cloud database. `e2e-*` Vite modes and unit tests keep the previous in-process fixture/local ledger path so those suites stay deterministic. The production build remains a Progressive Web App: it ships a web app manifest and a service worker, and `/api/accounts` plus `/api/cards` are network-only.
+There is no authentication, bank connection, or cloud database. `e2e-*` Vite modes and unit tests keep the previous in-process fixture/local ledger path so those suites stay deterministic. The production build remains a Progressive Web App: it ships a web app manifest and a service worker, and `/api/accounts`, `/api/cards`, and `/api/transactions` are network-only.
 
 ## Unresolved product decisions
 
@@ -65,7 +74,7 @@ npm install
 npm run dev
 ```
 
-Preview the installable build with `npm run build && npm run preview`. That preview process also hosts the Account and Card APIs. `npm run server` serves `dist/` plus the same APIs from a standalone Node HTTP process.
+Preview the installable build with `npm run build && npm run preview`. That preview process also hosts the Account, Card, and Transaction APIs. `npm run server` serves `dist/` plus the same APIs from a standalone Node HTTP process.
 
 ## Testing, typecheck, lint, and build
 
