@@ -6,7 +6,14 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 export default defineConfig([
-  globalIgnores(["dist", "dev-dist"]),
+  globalIgnores(["dist", "dev-dist", "data"]),
+  {
+    files: ["server/**/*.ts"],
+    languageOptions: {
+      ecmaVersion: 2023,
+      globals: globals.node,
+    },
+  },
   {
     files: ["**/*.{ts,tsx}"],
     extends: [

@@ -22,6 +22,7 @@ export type CardsProps = {
   cards: Card[];
   transactions: Transaction[];
   selectedCardId: string;
+  systemNotice?: string;
   onSelectCard: (cardId: string) => void;
   onCreateCard?: (draft: CardDraft) => EntityMutationResult<Card>;
   onUpdateCard?: (id: string, draft: CardDraft) => EntityMutationResult<Card>;
@@ -37,6 +38,7 @@ export function Cards({
   cards,
   transactions,
   selectedCardId,
+  systemNotice,
   onSelectCard,
   onCreateCard,
   onUpdateCard,
@@ -65,6 +67,7 @@ export function Cards({
     <div className="app-shell">
       <SiteHeader
         current="cards"
+        systemNotice={systemNotice}
         onShowDashboard={() => {
           onShowDashboard?.();
         }}

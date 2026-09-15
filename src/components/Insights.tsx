@@ -6,6 +6,7 @@ export type InsightsProps = {
   accounts: Account[];
   cards: Card[];
   transactions: Transaction[];
+  systemNotice?: string;
   onShowDashboard?: () => void;
   onShowAccounts?: () => void;
   onShowCards?: () => void;
@@ -19,6 +20,7 @@ export function Insights({
   accounts,
   cards,
   transactions,
+  systemNotice,
   onShowDashboard,
   onShowAccounts,
   onShowCards,
@@ -31,6 +33,7 @@ export function Insights({
     <div className="app-shell">
       <SiteHeader
         current="insights"
+        systemNotice={systemNotice}
         onShowDashboard={() => {
           onShowDashboard?.();
         }}

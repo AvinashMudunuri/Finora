@@ -1,11 +1,13 @@
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 import { defineConfig } from "vitest/config";
+import { finoraAccountApi } from "./server/vitePlugin.ts";
 import { finoraWebManifest } from "./src/pwa/manifest.ts";
 
 export default defineConfig({
   plugins: [
     react(),
+    finoraAccountApi(),
     VitePWA({
       registerType: "autoUpdate",
       includeAssets: [
@@ -25,6 +27,13 @@ export default defineConfig({
       manifest: finoraWebManifest,
       workbox: {
         globPatterns: ["**/*.{js,css,html,svg,png,webmanifest}"],
+        navigateFallbackDenylist: [/^\/api\//],
+        runtimeCaching: [
+          {
+            urlPattern: /\/api\/accounts/,
+            handler: "NetworkOnly",
+          },
+        ],
       },
     }),
   ],

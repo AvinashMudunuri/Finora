@@ -13,7 +13,12 @@ import {
   loadAppCards,
   loadAppTransactions,
   loadManagedLedger,
+  MANAGED_CARDS_STORAGE_KEY,
   MANAGED_LEDGER_STORAGE_KEY,
+  loadManagedCards,
+  peekManagedLedgerAccounts,
+  retireManagedLedgerAccounts,
+  saveManagedCards,
   saveManagedLedger,
   usesManagedLedger,
   transactionsWithNeutralSeptemberNetWorth,
@@ -355,5 +360,58 @@ describe("managed ledger persistence", () => {
         cards: fixtureCards,
       }),
     ).toEqual({ accounts: fixtureAccounts, cards: fixtureCards });
+  });
+});
+
+describe("managed cards persistence after account backend split", () => {
+  it("round-trips cards without writing accounts back to the ledger key", () => {
+    const memory = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => memory.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        memory.set(key, value);
+      },
+      removeItem: (key: string) => {
+        memory.delete(key);
+      },
+    };
+
+    saveManagedCards(storage, fixtureCards, fixtureTransactions, fixtureAccounts);
+
+    expect(memory.get(MANAGED_LEDGER_STORAGE_KEY)).toBeUndefined();
+    expect(JSON.parse(memory.get(MANAGED_CARDS_STORAGE_KEY) ?? "{}").version).toBe(1);
+    expect(
+      loadManagedCards(
+        fixtureTransactions,
+        fixtureAccounts,
+        storage,
+        [],
+      ).map((card) => card.name),
+    ).toContain("Visa Rewards");
+  });
+
+  it("peeks valid local accounts and can retire the combined ledger", () => {
+    const memory = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => memory.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        memory.set(key, value);
+      },
+      removeItem: (key: string) => {
+        memory.delete(key);
+      },
+    };
+
+    saveManagedLedger(
+      storage,
+      { accounts: fixtureAccounts, cards: fixtureCards },
+      fixtureTransactions,
+    );
+
+    expect(peekManagedLedgerAccounts(storage, fixtureTransactions)?.[0]?.id).toBe(
+      "acc-checking",
+    );
+    retireManagedLedgerAccounts(storage);
+    expect(peekManagedLedgerAccounts(storage, fixtureTransactions)).toBeNull();
   });
 });

@@ -10,6 +10,7 @@ export type AppView =
 
 type SiteHeaderProps = {
   current: AppView;
+  systemNotice?: string;
   onShowDashboard: () => void;
   onShowAccounts?: () => void;
   onShowCards: () => void;
@@ -20,6 +21,7 @@ type SiteHeaderProps = {
 
 export function SiteHeader({
   current,
+  systemNotice,
   onShowDashboard,
   onShowAccounts,
   onShowCards,
@@ -101,6 +103,11 @@ export function SiteHeader({
           Insights
         </button>
       </nav>
+      {systemNotice ? (
+        <p className="field-error" role="alert">
+          {systemNotice}
+        </p>
+      ) : null}
     </header>
   );
 }
