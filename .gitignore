@@ -11,6 +11,10 @@ node_modules
 dist
 dist-e2e-high-util
 dist-e2e-no-attention
+dist-e2e-overdue
+
+# Local capture artifacts
+docs/evaluations/**/.chrome-profile/
 dist-ssr
 dev-dist
 data/*.json

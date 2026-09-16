@@ -17,6 +17,7 @@ import {
   calculateNetWorthChange,
   calculateSpendingChange,
   latestActivityMonth,
+  listCardPaymentObligations,
   listMonthlyNetWorthHistory,
   listNetWorthChangeBreakdown,
   listNetWorthChangeEvidence,
@@ -312,6 +313,120 @@ describe("Finora dashboard", () => {
     ).toBeInTheDocument();
     expect(within(region).queryByText("$4.12")).not.toBeInTheDocument();
     expect(within(region).queryByText("$2,049.61")).not.toBeInTheDocument();
+  });
+
+  it("shows the stored due card obligation beside monthly flow without changing savings", () => {
+    renderDashboard();
+
+    const period = latestActivityMonth(fixtureTransactions);
+    const flow = calculateMonthlySavings(
+      fixtureTransactions,
+      period!.year,
+      period!.month,
+    );
+    const obligation = listCardPaymentObligations(fixtureCards)[0]!;
+    const visa = fixtureCards[0]!;
+    const region = screen.getByRole("region", { name: "Monthly flow" });
+
+    expect(obligation.cardId).toBe(visa.id);
+    expect(visa.paymentStatus).toBe("due");
+    expect(
+      within(region).getByRole("heading", { name: "Card payment" }),
+    ).toBeInTheDocument();
+    expect(
+      within(region).getByText(`${visa.name} · ${paymentStatusLabel(visa.paymentStatus)}`),
+    ).toBeInTheDocument();
+    expect(
+      within(region).getByText((_, element) => {
+        return (
+          element?.tagName === "P" &&
+          element.textContent ===
+            `Minimum payment ${formatCurrency(visa.minimumPayment, visa.currency)} · Due ${formatDate(visa.paymentDueDate)}`
+        );
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(region).getByText(formatCurrency(flow.savings, flow.currency)),
+    ).toBeInTheDocument();
+    expect(flow.savings).toBe(flow.income - flow.spending);
+    expect(within(region).queryByText("Amex Everyday")).not.toBeInTheDocument();
+    expect(
+      within(region).queryByText(/should I pay|after card payment/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("opens the existing card experience from monthly-flow Inspect", async () => {
+    const user = userEvent.setup();
+    const onOpenCard = vi.fn();
+
+    render(
+      <Dashboard
+        accounts={fixtureAccounts}
+        cards={fixtureCards}
+        transactions={fixtureTransactions}
+        onOpenCard={onOpenCard}
+      />,
+    );
+
+    const region = screen.getByRole("region", { name: "Monthly flow" });
+    await user.click(
+      within(region).getByRole("button", { name: "Inspect Visa Rewards" }),
+    );
+    expect(onOpenCard).toHaveBeenCalledWith("card-visa");
+  });
+
+  it("shows no monthly-flow obligation when every card is current", () => {
+    render(
+      <Dashboard
+        accounts={fixtureAccounts}
+        cards={fixtureCards.map((card) => ({
+          ...card,
+          paymentStatus: "current",
+        }))}
+        transactions={fixtureTransactions}
+      />,
+    );
+
+    const region = screen.getByRole("region", { name: "Monthly flow" });
+    expect(
+      within(region).getByText("No stored card payment is due."),
+    ).toBeInTheDocument();
+    expect(
+      within(region).queryByRole("button", { name: /Inspect / }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("lists overdue before due using the existing payment-attention order", () => {
+    const cards: Card[] = [
+      {
+        ...fixtureCards[1]!,
+        paymentStatus: "due",
+      },
+      {
+        ...fixtureCards[0]!,
+        paymentStatus: "overdue",
+      },
+    ];
+
+    render(
+      <Dashboard
+        accounts={fixtureAccounts}
+        cards={cards}
+        transactions={fixtureTransactions}
+      />,
+    );
+
+    const region = screen.getByRole("region", { name: "Monthly flow" });
+    const identities = within(region)
+      .getAllByText(/Visa Rewards|Amex Everyday/)
+      .map((node) => node.textContent);
+
+    expect(identities[0]).toBe("Visa Rewards · Overdue");
+    expect(identities[1]).toBe("Amex Everyday · Due");
+    expect(listCardPaymentObligations(cards).map((item) => item.cardId)).toEqual([
+      "card-visa",
+      "card-amex",
+    ]);
   });
 
   it("uses existing income, spending, and savings semantics for the latest month", () => {

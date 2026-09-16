@@ -10,6 +10,7 @@ import {
   calculateCardUtilization,
   calculateHighCardUtilization,
   calculateCardPaymentAttention,
+  listCardPaymentObligations,
   HIGH_CARD_UTILIZATION_THRESHOLD,
   calculateLiquidAssets,
   calculateMonthlyIncome,
@@ -476,6 +477,102 @@ describe("card payment attention", () => {
       outstandingBalance: visa.outstandingBalance,
     });
     expect(result?.paymentStatus).toBe("due");
+  });
+});
+
+describe("card payment obligations", () => {
+  it("lists the fixture due card and omits the current card", () => {
+    const listed = listCardPaymentObligations(fixtureCards);
+    const visa = fixtureCards[0]!;
+
+    expect(listed).toEqual([
+      {
+        cardId: visa.id,
+        paymentStatus: visa.paymentStatus,
+        paymentDueDate: visa.paymentDueDate,
+        minimumPayment: visa.minimumPayment,
+        outstandingBalance: visa.outstandingBalance,
+      },
+    ]);
+    expect(calculateCardPaymentAttention(fixtureCards)).toEqual(listed[0]);
+  });
+
+  it("returns an empty list when every card is current", () => {
+    expect(
+      listCardPaymentObligations([
+        card({
+          id: "current",
+          creditLimit: 1000,
+          outstandingBalance: 100,
+          paymentStatus: "current",
+          minimumPayment: 20,
+        }),
+      ]),
+    ).toEqual([]);
+  });
+
+  it("returns an empty list when there are no cards", () => {
+    expect(listCardPaymentObligations([])).toEqual([]);
+  });
+
+  it("keeps a due card with a zero minimum payment", () => {
+    const listed = listCardPaymentObligations([
+      card({
+        id: "due-zero-min",
+        creditLimit: 1000,
+        outstandingBalance: 0,
+        paymentStatus: "due",
+        paymentDueDate: "2026-09-22",
+        minimumPayment: 0,
+      }),
+    ]);
+
+    expect(listed).toEqual([
+      {
+        cardId: "due-zero-min",
+        paymentStatus: "due",
+        paymentDueDate: "2026-09-22",
+        minimumPayment: 0,
+        outstandingBalance: 0,
+      },
+    ]);
+  });
+
+  it("orders overdue before due, then existing card-list order", () => {
+    const cards = [
+      card({
+        id: "due-first",
+        creditLimit: 1000,
+        outstandingBalance: 80,
+        paymentStatus: "due",
+        paymentDueDate: "2026-09-22",
+        minimumPayment: 15,
+      }),
+      card({
+        id: "overdue-second",
+        creditLimit: 1000,
+        outstandingBalance: 90,
+        paymentStatus: "overdue",
+        paymentDueDate: "2026-08-01",
+        minimumPayment: 30,
+      }),
+      card({
+        id: "due-third",
+        creditLimit: 1000,
+        outstandingBalance: 40,
+        paymentStatus: "due",
+        paymentDueDate: "2026-09-30",
+        minimumPayment: 10,
+      }),
+    ];
+    const listed = listCardPaymentObligations(cards);
+
+    expect(listed.map((item) => item.cardId)).toEqual([
+      "overdue-second",
+      "due-first",
+      "due-third",
+    ]);
+    expect(calculateCardPaymentAttention(cards)).toEqual(listed[0]);
   });
 });
 

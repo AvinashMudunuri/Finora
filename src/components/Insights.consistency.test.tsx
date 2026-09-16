@@ -63,7 +63,7 @@ describe("Dashboard and Insights consistency", () => {
     expect(screen.getAllByText(copy.spendingPeriod).length).toBeGreaterThan(0);
     expect(screen.getByText(copy.netWorthBody)).toBeInTheDocument();
     expect(screen.getAllByText(copy.netWorthPeriod).length).toBeGreaterThan(0);
-    expect(screen.getByText(copy.paymentName)).toBeInTheDocument();
+    expect(screen.getAllByText(copy.paymentName).length).toBeGreaterThan(0);
     expect(attentionTitles()).toEqual(expectedTitles);
 
     dashboard.unmount();
