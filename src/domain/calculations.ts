@@ -163,15 +163,11 @@ export type CardPaymentAttentionResult = {
   outstandingBalance: number;
 };
 
-export function calculateCardPaymentAttention(
+export function listCardPaymentObligations(
   cards: Card[],
-): CardPaymentAttentionResult | null {
+): CardPaymentAttentionResult[] {
   const order = new Map(cards.map((currentCard, index) => [currentCard.id, index]));
   const qualifying = cards.filter(isAttentionPaymentStatus);
-
-  if (qualifying.length === 0) {
-    return null;
-  }
 
   qualifying.sort((left, right) => {
     const statusDelta =
@@ -184,14 +180,19 @@ export function calculateCardPaymentAttention(
     return (order.get(left.id) ?? 0) - (order.get(right.id) ?? 0);
   });
 
-  const selected = qualifying[0]!;
-  return {
+  return qualifying.map((selected) => ({
     cardId: selected.id,
     paymentStatus: selected.paymentStatus,
     paymentDueDate: selected.paymentDueDate,
     minimumPayment: selected.minimumPayment,
     outstandingBalance: selected.outstandingBalance,
-  };
+  }));
+}
+
+export function calculateCardPaymentAttention(
+  cards: Card[],
+): CardPaymentAttentionResult | null {
+  return listCardPaymentObligations(cards)[0] ?? null;
 }
 
 function isAttentionPaymentStatus(

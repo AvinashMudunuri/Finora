@@ -5,12 +5,18 @@ import {
   calculateNetWorthChange,
   calculateSpendingChange,
   latestActivityMonth,
+  listCardPaymentObligations,
   listMonthlyNetWorthHistory,
   listRecentMonthlyFlows,
 } from "../domain/calculations.ts";
 import { netWorthChangeDirectionLabel } from "../domain/insights.ts";
 import { AttentionInsights } from "./AttentionInsights.tsx";
-import { formatCurrency, formatMonth } from "../domain/finance.ts";
+import {
+  formatCurrency,
+  formatDate,
+  formatMonth,
+  paymentStatusLabel,
+} from "../domain/finance.ts";
 import type { Account, Card, Transaction } from "../domain/types.ts";
 import { SiteHeader } from "./SiteHeader.tsx";
 
@@ -67,6 +73,8 @@ export function Dashboard({
     transactions,
   );
   const monthlyHistory = listRecentMonthlyFlows(transactions);
+  const cardPaymentObligations = listCardPaymentObligations(cards);
+  const cardsById = new Map(cards.map((card) => [card.id, card]));
 
   return (
     <div className="app-shell">
@@ -366,6 +374,55 @@ export function Dashboard({
               </p>
               <p className="stat-note">Income − spending</p>
             </article>
+          </div>
+
+          <div className="flow-obligation">
+            <h3 id="card-payment-heading">Card payment</h3>
+            <p className="stat-note">
+              Stored minimum payment for cards that are due or overdue. This is
+              not deducted from savings.
+            </p>
+            {cardPaymentObligations.length === 0 ? (
+              <p className="stat-note stat-note-quiet">
+                No stored card payment is due.
+              </p>
+            ) : (
+              <ul className="flow-obligation-list">
+                {cardPaymentObligations.map((obligation) => {
+                  const card = cardsById.get(obligation.cardId);
+                  if (!card) {
+                    return null;
+                  }
+
+                  return (
+                    <li key={obligation.cardId}>
+                      <p className="flow-obligation-identity">
+                        {card.name} · {paymentStatusLabel(obligation.paymentStatus)}
+                      </p>
+                      <p className="stat-note">
+                        Minimum payment{" "}
+                        {formatCurrency(obligation.minimumPayment, card.currency)}
+                        {" · Due "}
+                        <time dateTime={obligation.paymentDueDate}>
+                          {formatDate(obligation.paymentDueDate)}
+                        </time>
+                      </p>
+                      {onOpenCard ? (
+                        <button
+                          type="button"
+                          className="inline-action"
+                          onClick={() => {
+                            onOpenCard(obligation.cardId);
+                          }}
+                        >
+                          Inspect {card.name}
+                        </button>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
         </section>
 
