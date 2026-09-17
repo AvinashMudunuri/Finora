@@ -6,6 +6,7 @@ import {
   calculateSpendingChange,
   latestActivityMonth,
   listCardPaymentObligations,
+  listInvestmentAccounts,
   listMonthlyNetWorthHistory,
   listRecentMonthlyFlows,
 } from "../domain/calculations.ts";
@@ -51,12 +52,14 @@ export function Dashboard({
   onShowTransactions,
   onShowSpending,
   onShowAccounts,
+  onOpenAccount,
   onOpenCard,
   onOpenTransaction,
   onShowInsights,
 }: DashboardProps) {
   const worth = calculateNetWorth(accounts, cards);
   const assets = calculateAssetBreakdown(accounts);
+  const investmentAccounts = listInvestmentAccounts(accounts);
   const activityMonth = latestActivityMonth(transactions);
   const selectedYear = activityMonth?.year ?? 0;
   const selectedMonth = activityMonth?.month ?? 1;
@@ -159,6 +162,47 @@ export function Dashboard({
                   Liquid is bank + cash. Investments are assets, not liquid
                   cash.
                 </p>
+                <div className="investment-inspect">
+                  {investmentAccounts.length === 0 ? (
+                    <p className="stat-note">
+                      No investment accounts in this snapshot.
+                    </p>
+                  ) : (
+                    <>
+                      <p className="stat-note">
+                        {investmentAccounts.length === 1
+                          ? "1 investment account"
+                          : `${investmentAccounts.length} investment accounts`}
+                      </p>
+                      <ul
+                        className="investment-account-list"
+                        aria-label="Investment accounts"
+                      >
+                        {investmentAccounts.map((account) => (
+                          <li key={account.id}>
+                            <div className="investment-account-row">
+                              <span>{account.name}</span>
+                              <span className="account-balance">
+                                {formatCurrency(account.balance, account.currency)}
+                              </span>
+                            </div>
+                            {onOpenAccount ? (
+                              <button
+                                type="button"
+                                className="inline-action"
+                                onClick={() => {
+                                  onOpenAccount(account.id);
+                                }}
+                              >
+                                Inspect {account.name}
+                              </button>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                </div>
                 {onShowAccounts ? (
                   <button
                     type="button"

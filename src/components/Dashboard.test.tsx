@@ -18,6 +18,7 @@ import {
   calculateSpendingChange,
   latestActivityMonth,
   listCardPaymentObligations,
+  listInvestmentAccounts,
   listMonthlyNetWorthHistory,
   listNetWorthChangeBreakdown,
   listNetWorthChangeEvidence,
@@ -78,7 +79,11 @@ describe("Finora dashboard", () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByText("Everyday Checking")).not.toBeInTheDocument();
     expect(screen.queryByText("Emergency Savings")).not.toBeInTheDocument();
-    expect(screen.queryByText("Investment Account")).not.toBeInTheDocument();
+    expect(
+      within(screen.getByRole("region", { name: "Overview" })).getByText(
+        "Investment Account",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("shows calculated net worth and monthly spending from existing calculations", () => {
@@ -269,12 +274,101 @@ describe("Finora dashboard", () => {
       within(overview).getByText(formatCurrency(assets.cash, "USD")),
     ).toBeInTheDocument();
     expect(
-      within(overview).getByText(formatCurrency(assets.investment, "USD")),
-    ).toBeInTheDocument();
+      within(overview).getAllByText(formatCurrency(assets.investment, "USD"))
+        .length,
+    ).toBeGreaterThan(1);
     expect(
       within(overview).getByText(formatCurrency(liquid, "USD")),
     ).toBeInTheDocument();
     expect(within(overview).getByText("Assets − liabilities")).toBeInTheDocument();
+    expect(within(overview).getByText("1 investment account")).toBeInTheDocument();
+    expect(
+      within(overview).getByRole("list", { name: "Investment accounts" }),
+    ).toBeInTheDocument();
+  });
+
+  it("lists stored investment accounts that sum to the Overview investment value", () => {
+    const extra: Account = {
+      id: "acc-ira",
+      name: "Retirement IRA",
+      type: "investment",
+      balance: 1250,
+      currency: "USD",
+    };
+    const accounts = [...fixtureAccounts, extra];
+    const assets = calculateAssetBreakdown(accounts);
+    const listed = listInvestmentAccounts(accounts);
+
+    render(
+      <Dashboard
+        accounts={accounts}
+        cards={fixtureCards}
+        transactions={fixtureTransactions}
+      />,
+    );
+
+    const overview = screen.getByRole("region", { name: "Overview" });
+    const investmentList = within(overview).getByRole("list", {
+      name: "Investment accounts",
+    });
+
+    expect(listed).toHaveLength(2);
+    expect(within(overview).getByText("2 investment accounts")).toBeInTheDocument();
+    expect(
+      within(overview).getByText(formatCurrency(assets.investment, assets.currency)),
+    ).toBeInTheDocument();
+    expect(within(investmentList).getByText("Investment Account")).toBeInTheDocument();
+    expect(within(investmentList).getByText("Retirement IRA")).toBeInTheDocument();
+    expect(
+      within(investmentList).getByText(formatCurrency(8420.55, "USD")),
+    ).toBeInTheDocument();
+    expect(
+      within(investmentList).getByText(formatCurrency(1250, "USD")),
+    ).toBeInTheDocument();
+    expect(
+      listed.reduce((total, account) => total + account.balance, 0),
+    ).toBeCloseTo(assets.investment, 2);
+  });
+
+  it("opens the existing account destination from the investment inspect action", async () => {
+    const user = userEvent.setup();
+    const onOpenAccount = vi.fn();
+
+    render(
+      <Dashboard
+        accounts={fixtureAccounts}
+        cards={fixtureCards}
+        transactions={fixtureTransactions}
+        onOpenAccount={onOpenAccount}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Inspect Investment Account" }),
+    );
+
+    expect(onOpenAccount).toHaveBeenCalledTimes(1);
+    expect(onOpenAccount).toHaveBeenCalledWith("acc-investment");
+  });
+
+  it("does not invent an investment inspect path when no investment account exists", () => {
+    render(
+      <Dashboard
+        accounts={fixtureAccounts.filter((account) => account.type !== "investment")}
+        cards={fixtureCards}
+        transactions={fixtureTransactions}
+        onOpenAccount={vi.fn()}
+      />,
+    );
+
+    const overview = screen.getByRole("region", { name: "Overview" });
+    expect(within(overview).getByText("No investment accounts in this snapshot.")).toBeInTheDocument();
+    expect(
+      within(overview).queryByRole("list", { name: "Investment accounts" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(overview).queryByRole("button", { name: /Inspect / }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows monthly income, spending, and savings for the same latest activity month", () => {

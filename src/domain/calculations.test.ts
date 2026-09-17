@@ -21,6 +21,7 @@ import {
   calculateNetWorthChange,
   calculateSpendingChange,
   listActivityMonths,
+  listInvestmentAccounts,
   listMonthlyNetWorthHistory,
   listNetWorthChangeBreakdown,
   listNetWorthChangeEvidence,
@@ -172,6 +173,44 @@ describe("asset breakdown", () => {
     expect(first.investment).toBeCloseTo(8420.55, 2);
     expect(first.total).toBeCloseTo(worth.assets, 2);
     expect(first.liquid).toBeCloseTo(first.bank + first.cash, 2);
+  });
+});
+
+describe("investment account list", () => {
+  it("returns only stored investment accounts in source order", () => {
+    const listed = listInvestmentAccounts([
+      account({ id: "bank", type: "bank", balance: 10 }),
+      account({ id: "brokerage", name: "Brokerage", type: "investment", balance: 40 }),
+      account({ id: "cash", type: "cash", balance: 5 }),
+      account({ id: "ira", name: "IRA", type: "investment", balance: 20 }),
+    ]);
+
+    expect(listed.map((item) => item.id)).toEqual(["brokerage", "ira"]);
+    expect(listed.reduce((total, item) => total + item.balance, 0)).toBe(60);
+    expect(listed.reduce((total, item) => total + item.balance, 0)).toBe(
+      calculateAssetBreakdown([
+        account({ id: "bank", type: "bank", balance: 10 }),
+        account({ id: "brokerage", name: "Brokerage", type: "investment", balance: 40 }),
+        account({ id: "cash", type: "cash", balance: 5 }),
+        account({ id: "ira", name: "IRA", type: "investment", balance: 20 }),
+      ]).investment,
+    );
+  });
+
+  it("returns the fixture investment account without changing its stored balance", () => {
+    const listed = listInvestmentAccounts(fixtureAccounts);
+    const assets = calculateAssetBreakdown(fixtureAccounts);
+
+    expect(listed).toHaveLength(1);
+    expect(listed[0]?.id).toBe("acc-investment");
+    expect(listed[0]?.balance).toBe(8420.55);
+    expect(listed[0]?.balance).toBeCloseTo(assets.investment, 2);
+  });
+
+  it("returns an empty list when no investment account exists", () => {
+    expect(
+      listInvestmentAccounts([account({ id: "bank", type: "bank", balance: 10 })]),
+    ).toEqual([]);
   });
 });
 

@@ -161,6 +161,22 @@ describe("Finora app navigation", () => {
     expect(screen.getByText("Payroll — Acme Corp")).toBeInTheDocument();
   });
 
+  it("opens the existing investment account from the Overview inspect path", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(
+      screen.getByRole("button", { name: "Inspect Investment Account" }),
+    );
+
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Accounts" }),
+    ).toBeInTheDocument();
+    const detail = screen.getByRole("region", { name: "Investment Account" });
+    expect(within(detail).getAllByText("Investment").length).toBeGreaterThan(0);
+    expect(within(detail).getAllByText("$8,420.55").length).toBeGreaterThan(0);
+  });
+
   it("opens accounts from the dashboard financial-position card", async () => {
     const user = userEvent.setup();
     render(<App />);
