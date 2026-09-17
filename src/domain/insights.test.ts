@@ -15,6 +15,7 @@ import {
 } from "./calculations.ts";
 import {
   ATTENTION_EMPTY_COPY,
+  attentionReason,
   attentionTitle,
   listAttentionInsights,
 } from "./insights.ts";
@@ -133,5 +134,40 @@ describe("listAttentionInsights", () => {
     expect(attentionTitle(highUtil)).toBe("High card utilization");
     expect(ATTENTION_EMPTY_COPY).toMatch(/not a judgment/i);
     expect(ATTENTION_EMPTY_COPY).not.toMatch(/consider/i);
+  });
+
+  it("explains why each existing attention kind appears without advice", () => {
+    const defaultInsights = listAttentionInsights(
+      fixtureAccounts,
+      fixtureCards,
+      fixtureTransactions,
+    );
+    const overdue = listAttentionInsights(
+      fixtureAccounts,
+      cardsWithVisaOverduePaymentStatus(fixtureCards),
+      [],
+    )[0]!;
+    const highUtil = listAttentionInsights(
+      fixtureAccounts,
+      cardsWithHighVisaUtilization(fixtureCards),
+      [],
+    )[0]!;
+
+    expect(attentionReason(defaultInsights[0]!)).toBe(
+      "This appears because a stored card payment status is due.",
+    );
+    expect(attentionReason(defaultInsights[1]!)).toBe(
+      "This appears because stored monthly spending changed from the previous activity month.",
+    );
+    expect(attentionReason(defaultInsights[2]!)).toBe(
+      "This appears because stored net worth changed from the previous activity month.",
+    );
+    expect(attentionReason(overdue)).toBe(
+      "This appears because a stored card payment status is overdue.",
+    );
+    expect(attentionReason(highUtil)).toBe(
+      "This appears because stored card utilization is at or above the existing threshold.",
+    );
+    expect(attentionReason(defaultInsights[0]!)).not.toMatch(/should|consider|healthy/i);
   });
 });

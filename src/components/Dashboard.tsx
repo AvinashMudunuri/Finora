@@ -502,14 +502,16 @@ export function Dashboard({
           <div className="panel-header">
             <h2 id="attention-heading">Attention</h2>
             <p className="panel-copy">
-              What deserves inspection from stored records, using the same
-              attention list as Insights. No recommendations are invented.
+              What needs inspection now, from stored records. Open Insights
+              for why each item appears and the supporting evidence. No
+              recommendations are invented.
             </p>
           </div>
           <AttentionInsights
             accounts={accounts}
             cards={cards}
             transactions={transactions}
+            presentation="summary"
             onOpenCard={onOpenCard}
             onOpenTransaction={onOpenTransaction}
             onShowSpending={onShowSpending}

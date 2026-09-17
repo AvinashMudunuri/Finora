@@ -87,10 +87,11 @@ describe("Finora app navigation", () => {
     expect(screen.getByRole("list", { name: "Transaction list" })).toBeInTheDocument();
   });
 
-  it("opens a selected transaction from dashboard net-worth evidence", async () => {
+  it("opens a selected transaction from Insights net-worth evidence", async () => {
     const user = userEvent.setup();
     render(<App />);
 
+    await user.click(screen.getByRole("button", { name: "Insights" }));
     await user.click(
       screen.getByRole("button", { name: "Inspect Payroll — Acme Corp" }),
     );
@@ -290,10 +291,11 @@ describe("Finora app navigation", () => {
     expect(within(detail).getByText("Everyday Checking")).toBeInTheDocument();
   });
 
-  it("opens net-worth evidence from the dashboard into transaction detail", async () => {
+  it("opens net-worth evidence from Insights into transaction detail", async () => {
     const user = userEvent.setup();
     render(<App />);
 
+    await user.click(screen.getByRole("button", { name: "Insights" }));
     const region = screen
       .getByRole("heading", { name: "Net worth increased" })
       .closest("article");

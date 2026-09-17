@@ -22,7 +22,6 @@ import {
   listNetWorthChangeBreakdown,
   listNetWorthChangeEvidence,
   listRecentMonthlyFlows,
-  listSpendingChangeDrivers,
 } from "../domain/calculations.ts";
 import type { Account, Card, Transaction } from "../domain/types.ts";
 import {
@@ -105,15 +104,14 @@ describe("Finora dashboard", () => {
     expect(screen.queryByText(`${formatUtilization(1842.19 / 5000)} utilized · USD`)).not.toBeInTheDocument();
   });
 
-  it("keeps transaction evidence on existing attention inspect paths", () => {
+  it("keeps Dashboard attention concise and leaves transaction evidence off the list", () => {
     renderDashboard();
 
-    const evidence = within(attentionArticle("Net worth increased")).getByRole(
-      "list",
-      { name: "Net worth change evidence" },
-    );
-    expect(within(evidence).getByText("Payroll — Acme Corp")).toBeInTheDocument();
-    expect(within(evidence).getByText("Whole Foods Market")).toBeInTheDocument();
+    const region = attentionArticle("Net worth increased");
+    expect(
+      within(region).queryByRole("list", { name: "Net worth change evidence" }),
+    ).not.toBeInTheDocument();
+    expect(within(region).queryByText("Payroll — Acme Corp")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("region", { name: "Recent transactions" }),
     ).not.toBeInTheDocument();
@@ -189,7 +187,11 @@ describe("Finora dashboard", () => {
 
     const overview = screen.getByRole("region", { name: "Overview" });
     expect(within(overview).getAllByText("$100.00").length).toBeGreaterThan(0);
-    expect(screen.getByText("Harbor Payroll")).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("region", { name: "Monthly flow" })).getAllByText("$10.00")
+        .length,
+    ).toBeGreaterThan(0);
+    expect(screen.queryByText("Harbor Payroll")).not.toBeInTheDocument();
     expect(screen.queryByText("Everyday Checking")).not.toBeInTheDocument();
     expect(screen.queryByText("Payroll — Acme Corp")).not.toBeInTheDocument();
     expect(
@@ -674,15 +676,15 @@ describe("Finora dashboard", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      within(region).getByText(
+      within(region).queryByText(
         `Outstanding: ${formatCurrency(insight!.outstandingBalance, attentionCard!.currency)}`,
       ),
-    ).toBeInTheDocument();
+    ).not.toBeInTheDocument();
     expect(
-      within(region).getByText(
+      within(region).queryByText(
         `Credit limit: ${formatCurrency(insight!.creditLimit, attentionCard!.currency)}`,
       ),
-    ).toBeInTheDocument();
+    ).not.toBeInTheDocument();
     expect(within(region).queryByText("Amex Everyday")).not.toBeInTheDocument();
     expect(within(region).queryByText(/consider/i)).not.toBeInTheDocument();
   });
@@ -728,26 +730,16 @@ describe("Finora dashboard", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      within(region).getByText(
+      within(region).queryByText(
         `${formatMonth(insight!.currentPeriod.year, insight!.currentPeriod.month)} compared with ${formatMonth(insight!.previousPeriod.year, insight!.previousPeriod.month)}`,
       ),
-    ).toBeInTheDocument();
+    ).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Spending increased" })).not.toBeInTheDocument();
-
-    const drivers = listSpendingChangeDrivers(fixtureTransactions, insight!);
-    const driverList = within(region).getByRole("list", {
-      name: "Spending change drivers",
-    });
     expect(
-      within(region).getByText(
-        `Largest spending in ${formatMonth(drivers[0]!.period.year, drivers[0]!.period.month)}`,
-      ),
-    ).toBeInTheDocument();
-    expect(within(driverList).getByText("Rent — Oak Street Apt")).toBeInTheDocument();
-    expect(within(driverList).getByText("Dinner — Riverview")).toBeInTheDocument();
-    expect(within(driverList).getByText("Transit — Metro Card")).toBeInTheDocument();
-    expect(within(driverList).queryByText("Whole Foods Market")).not.toBeInTheDocument();
-    expect(within(driverList).queryByText("Payroll — Acme Corp")).not.toBeInTheDocument();
+      within(region).queryByRole("list", { name: "Spending change drivers" }),
+    ).not.toBeInTheDocument();
+    expect(within(region).queryByText("Rent — Oak Street Apt")).not.toBeInTheDocument();
+    expect(within(region).queryByText("Largest spending in")).not.toBeInTheDocument();
   });
 
   it("renders an increased insight from the calculated result, not hard-coded fixture copy", () => {
@@ -803,12 +795,10 @@ describe("Finora dashboard", () => {
     ).toBeInTheDocument();
     expect(screen.queryByText("Spending decreased")).not.toBeInTheDocument();
     expect(screen.queryByText("$87.42")).not.toBeInTheDocument();
-
-    const driverList = within(region).getByRole("list", {
-      name: "Spending change drivers",
-    });
-    expect(within(driverList).getByText("Newer grocery")).toBeInTheDocument();
-    expect(within(driverList).queryByText("Older grocery")).not.toBeInTheDocument();
+    expect(
+      within(region).queryByRole("list", { name: "Spending change drivers" }),
+    ).not.toBeInTheDocument();
+    expect(within(region).queryByText("Newer grocery")).not.toBeInTheDocument();
   });
 
   it("omits unchanged spending from attention", () => {
@@ -915,25 +905,22 @@ describe("Finora dashboard", () => {
     expect(onShowSpending).toHaveBeenCalledTimes(1);
   });
 
-  it("opens a spending-change driver through the existing transaction callback", async () => {
-    const user = userEvent.setup();
-    const onOpenTransaction = vi.fn();
-
+  it("does not expose spending-change drivers on the Dashboard summary", () => {
     render(
       <Dashboard
         accounts={fixtureAccounts}
         cards={fixtureCards}
         transactions={fixtureTransactions}
-        onOpenTransaction={onOpenTransaction}
       />,
     );
 
     const region = attentionArticle("Spending decreased");
-    await user.click(
-      within(region).getByRole("button", { name: "View Rent — Oak Street Apt" }),
-    );
-
-    expect(onOpenTransaction).toHaveBeenCalledWith("txn-004");
+    expect(
+      within(region).queryByRole("button", { name: "View Rent — Oak Street Apt" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(region).queryByRole("list", { name: "Spending change drivers" }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows current, previous, absolute change, and direction in What changed", () => {
@@ -988,22 +975,19 @@ describe("Finora dashboard", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      within(region).getByText(
+      within(region).queryByText(
         `${formatMonth(change!.currentPeriod.year, change!.currentPeriod.month)} compared with ${formatMonth(change!.previousPeriod.year, change!.previousPeriod.month)}`,
       ),
-    ).toBeInTheDocument();
+    ).not.toBeInTheDocument();
     expect(
-      within(region).getByText(
+      within(region).queryByText(
         `Change: ${formatCurrency(change!.absoluteChange, change!.currency, true)}`,
       ),
-    ).toBeInTheDocument();
-
-    const evidenceList = within(region).getByRole("list", {
-      name: "Net worth change evidence",
-    });
-    expect(within(evidenceList).getByText("Payroll — Acme Corp")).toBeInTheDocument();
-    expect(within(evidenceList).getByText("Whole Foods Market")).toBeInTheDocument();
-    expect(within(evidenceList).queryByText("Payment — Thank you")).not.toBeInTheDocument();
+    ).not.toBeInTheDocument();
+    expect(
+      within(region).queryByRole("list", { name: "Net worth change evidence" }),
+    ).not.toBeInTheDocument();
+    expect(within(region).queryByText("Payroll — Acme Corp")).not.toBeInTheDocument();
     expect(evidence.map((item) => item.transactionId)).toEqual(["txn-001", "txn-002"]);
     expect(
       within(region).queryByText(
@@ -1034,7 +1018,12 @@ describe("Finora dashboard", () => {
     expect(change?.direction).toBe("decreased");
     expect(screen.queryByRole("heading", { name: "Net worth increased" })).not.toBeInTheDocument();
     expect(
-      within(region).getByText("Whole Foods Market"),
+      within(region).queryByText("Whole Foods Market"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(region).getByText(
+        `Net worth is ${formatCurrency(change!.currentNetWorth, change!.currency)} this month, compared with ${formatCurrency(change!.previousNetWorth, change!.currency)} last month.`,
+      ),
     ).toBeInTheDocument();
   });
 
@@ -1104,8 +1093,7 @@ describe("Finora dashboard", () => {
     ).toBeInTheDocument();
   });
 
-  it("opens net-worth evidence through the existing transaction callback", async () => {
-    const user = userEvent.setup();
+  it("opens net-worth evidence through the existing transaction callback", () => {
     const onOpenTransaction = vi.fn();
 
     render(
@@ -1118,13 +1106,12 @@ describe("Finora dashboard", () => {
     );
 
     const region = attentionArticle("Net worth increased");
-    await user.click(
-      within(region).getByRole("button", {
+    expect(
+      within(region).queryByRole("button", {
         name: "Inspect Payroll — Acme Corp",
       }),
-    );
-
-    expect(onOpenTransaction).toHaveBeenCalledWith("txn-001");
+    ).not.toBeInTheDocument();
+    expect(onOpenTransaction).not.toHaveBeenCalled();
   });
 
   it("renders the payment-attention insight from the calculated due result", () => {
@@ -1139,13 +1126,13 @@ describe("Finora dashboard", () => {
     expect(region.textContent).toContain(
       `${attentionCard!.name} · ${paymentStatusLabel(insight!.paymentStatus)}`,
     );
-    expect(region.textContent).toContain(
+    expect(region.textContent).not.toContain(
       `Due: ${formatDate(insight!.paymentDueDate)}`,
     );
-    expect(region.textContent).toContain(
+    expect(region.textContent).not.toContain(
       `Minimum payment: ${formatCurrency(insight!.minimumPayment, attentionCard!.currency)}`,
     );
-    expect(region.textContent).toContain(
+    expect(region.textContent).not.toContain(
       `Outstanding: ${formatCurrency(insight!.outstandingBalance, attentionCard!.currency)}`,
     );
     expect(within(region).queryByText("Amex Everyday")).not.toBeInTheDocument();
@@ -1182,7 +1169,7 @@ describe("Finora dashboard", () => {
     expect(region.textContent).toContain(
       `${attentionCard!.name} · ${paymentStatusLabel(insight!.paymentStatus)}`,
     );
-    expect(region.textContent).toContain(
+    expect(region.textContent).not.toContain(
       `Due: ${formatDate(insight!.paymentDueDate)}`,
     );
     expect(screen.queryByText("Card payment due")).not.toBeInTheDocument();
@@ -1257,7 +1244,7 @@ describe("Finora dashboard", () => {
     expect(region.textContent).toContain(
       `${attentionCard!.name} · ${paymentStatusLabel(insight!.paymentStatus)}`,
     );
-    expect(region.textContent).toContain(
+    expect(region.textContent).not.toContain(
       `Minimum payment: ${formatCurrency(insight!.minimumPayment, attentionCard!.currency)}`,
     );
     expect(screen.queryByText(`min ${formatCurrency(insight!.minimumPayment, attentionCard!.currency)}`)).not.toBeInTheDocument();
@@ -1326,18 +1313,11 @@ describe("Finora dashboard", () => {
     );
     const breakdown = listNetWorthChangeBreakdown(fixtureTransactions, change!);
     const region = attentionArticle("Net worth increased");
-    const details = within(region).getByText("Account movement").closest("dl");
 
     expect(breakdown.assetMovement).toBeCloseTo(3200 - 87.42);
     expect(breakdown.liabilityMovement).toBe(0);
-    expect(details).not.toBeNull();
-    expect(within(details!).getByText("Card movement")).toBeInTheDocument();
-    expect(
-      within(details!).getByText(
-        formatCurrency(breakdown.assetMovement, change!.currency, true),
-      ),
-    ).toBeInTheDocument();
-    expect(within(details!).getByText("$0.00")).toBeInTheDocument();
+    expect(within(region).queryByText("Account movement")).not.toBeInTheDocument();
+    expect(within(region).queryByText("Card movement")).not.toBeInTheDocument();
   });
 
   it("shows recent monthly income, spending, and savings history", () => {
