@@ -12,16 +12,20 @@ import {
 } from "../domain/finance.ts";
 import {
   ATTENTION_EMPTY_COPY,
+  attentionReason,
   attentionTitle,
   listAttentionInsights,
   type AttentionInsight,
 } from "../domain/insights.ts";
 import type { Account, Card, Transaction } from "../domain/types.ts";
 
+export type AttentionPresentation = "summary" | "evidence";
+
 export type AttentionInsightsProps = {
   accounts: Account[];
   cards: Card[];
   transactions: Transaction[];
+  presentation?: AttentionPresentation;
   onOpenCard?: (cardId: string) => void;
   onOpenTransaction?: (transactionId: string) => void;
   onShowSpending?: () => void;
@@ -32,6 +36,7 @@ export function AttentionInsights({
   accounts,
   cards,
   transactions,
+  presentation = "evidence",
   onOpenCard,
   onOpenTransaction,
   onShowSpending,
@@ -45,11 +50,16 @@ export function AttentionInsights({
   }
 
   return (
-    <ol className="insight-stack" aria-label="Attention insights">
+    <ol
+      className="insight-stack"
+      aria-label="Attention insights"
+      data-presentation={presentation}
+    >
       {insights.map((insight) => (
         <li key={insight.kind}>
           <AttentionCard
             insight={insight}
+            presentation={presentation}
             cardsById={cardsById}
             transactions={transactions}
             onOpenCard={onOpenCard}
@@ -95,6 +105,7 @@ function AttentionKicker({ insight }: { insight: AttentionInsight }) {
 
 function AttentionCard({
   insight,
+  presentation,
   cardsById,
   transactions,
   onOpenCard,
@@ -103,6 +114,7 @@ function AttentionCard({
   onShowDashboard,
 }: {
   insight: AttentionInsight;
+  presentation: AttentionPresentation;
   cardsById: Map<string, Card>;
   transactions: Transaction[];
   onOpenCard?: (cardId: string) => void;
@@ -110,6 +122,7 @@ function AttentionCard({
   onShowSpending?: () => void;
   onShowDashboard?: () => void;
 }) {
+  const detailed = presentation === "evidence";
   if (
     insight.kind === "card-payment-overdue" ||
     insight.kind === "card-payment-due"
@@ -125,20 +138,25 @@ function AttentionCard({
         <p className="insight-body">
           {card.name} · {paymentStatusLabel(insight.payment.paymentStatus)}
         </p>
-        <p className="stat-note">
-          Due:{" "}
-          <time dateTime={insight.payment.paymentDueDate}>
-            {formatDate(insight.payment.paymentDueDate)}
-          </time>
-        </p>
-        <p className="stat-note">
-          Minimum payment:{" "}
-          {formatCurrency(insight.payment.minimumPayment, card.currency)}
-        </p>
-        <p className="stat-note">
-          Outstanding:{" "}
-          {formatCurrency(insight.payment.outstandingBalance, card.currency)}
-        </p>
+        {detailed ? (
+          <>
+            <p className="stat-note insight-reason">{attentionReason(insight)}</p>
+            <p className="stat-note">
+              Due:{" "}
+              <time dateTime={insight.payment.paymentDueDate}>
+                {formatDate(insight.payment.paymentDueDate)}
+              </time>
+            </p>
+            <p className="stat-note">
+              Minimum payment:{" "}
+              {formatCurrency(insight.payment.minimumPayment, card.currency)}
+            </p>
+            <p className="stat-note">
+              Outstanding:{" "}
+              {formatCurrency(insight.payment.outstandingBalance, card.currency)}
+            </p>
+          </>
+        ) : null}
         {onOpenCard ? (
           <button
             type="button"
@@ -167,17 +185,22 @@ function AttentionCard({
           {card.name} is at {formatUtilization(insight.utilization.utilization)},
           at or above {formatUtilization(insight.utilization.threshold)}.
         </p>
-        <p className="stat-note">
-          Outstanding:{" "}
-          {formatCurrency(
-            insight.utilization.outstandingBalance,
-            card.currency,
-          )}
-        </p>
-        <p className="stat-note">
-          Credit limit:{" "}
-          {formatCurrency(insight.utilization.creditLimit, card.currency)}
-        </p>
+        {detailed ? (
+          <>
+            <p className="stat-note insight-reason">{attentionReason(insight)}</p>
+            <p className="stat-note">
+              Outstanding:{" "}
+              {formatCurrency(
+                insight.utilization.outstandingBalance,
+                card.currency,
+              )}
+            </p>
+            <p className="stat-note">
+              Credit limit:{" "}
+              {formatCurrency(insight.utilization.creditLimit, card.currency)}
+            </p>
+          </>
+        ) : null}
         {onOpenCard ? (
           <button
             type="button"
@@ -216,6 +239,10 @@ function AttentionCard({
           )}{" "}
           last month.
         </p>
+        {detailed ? (
+          <p className="stat-note insight-reason">{attentionReason(insight)}</p>
+        ) : null}
+        {detailed ? (
         <p className="stat-note">
           {formatMonth(
             insight.change.currentPeriod.year,
@@ -227,7 +254,8 @@ function AttentionCard({
             insight.change.previousPeriod.month,
           )}
         </p>
-        {drivers.length > 0 ? (
+        ) : null}
+        {detailed && drivers.length > 0 ? (
           <>
             <p className="stat-note">
               Largest spending in{" "}
@@ -311,6 +339,10 @@ function AttentionCard({
         )}{" "}
         last month.
       </p>
+      {detailed ? (
+        <p className="stat-note insight-reason">{attentionReason(insight)}</p>
+      ) : null}
+      {detailed ? (
       <p className="stat-note">
         {formatMonth(
           insight.change.currentPeriod.year,
@@ -322,6 +354,8 @@ function AttentionCard({
           insight.change.previousPeriod.month,
         )}
       </p>
+      ) : null}
+      {detailed ? (
       <p className="stat-note">
         Change:{" "}
         {formatCurrency(
@@ -332,6 +366,8 @@ function AttentionCard({
           insight.change.direction !== "unchanged",
         )}
       </p>
+      ) : null}
+      {detailed ? (
       <dl className="position-breakdown" aria-label="Net worth change breakdown">
         <div>
           <dt>Account movement</dt>
@@ -354,7 +390,8 @@ function AttentionCard({
           </dd>
         </div>
       </dl>
-      {evidence.length > 0 ? (
+      ) : null}
+      {detailed && evidence.length > 0 ? (
         <ol className="transaction-list" aria-label="Net worth change evidence">
           {evidence.map((item) => (
             <li key={item.transactionId}>

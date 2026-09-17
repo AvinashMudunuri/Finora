@@ -59,12 +59,20 @@ describe("Dashboard and Insights consistency", () => {
       />,
     );
 
+    const dashboardAttention = screen.getByRole("list", { name: "Attention insights" });
     expect(screen.getByText(copy.spendingBody)).toBeInTheDocument();
-    expect(screen.getAllByText(copy.spendingPeriod).length).toBeGreaterThan(0);
     expect(screen.getByText(copy.netWorthBody)).toBeInTheDocument();
-    expect(screen.getAllByText(copy.netWorthPeriod).length).toBeGreaterThan(0);
     expect(screen.getAllByText(copy.paymentName).length).toBeGreaterThan(0);
     expect(attentionTitles()).toEqual(expectedTitles);
+    expect(
+      within(dashboardAttention).queryByRole("list", { name: "Spending change drivers" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(dashboardAttention).queryByRole("list", { name: "Net worth change evidence" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(dashboardAttention).queryByText(/This appears because/),
+    ).not.toBeInTheDocument();
 
     dashboard.unmount();
 
@@ -76,12 +84,24 @@ describe("Dashboard and Insights consistency", () => {
       />,
     );
 
+    const insightsAttention = screen.getByRole("list", { name: "Attention insights" });
     expect(screen.getByText(copy.spendingBody)).toBeInTheDocument();
     expect(screen.getAllByText(copy.spendingPeriod).length).toBeGreaterThan(0);
     expect(screen.getByText(copy.netWorthBody)).toBeInTheDocument();
     expect(screen.getAllByText(copy.netWorthPeriod).length).toBeGreaterThan(0);
     expect(screen.getByText(copy.paymentName)).toBeInTheDocument();
     expect(attentionTitles()).toEqual(expectedTitles);
+    expect(
+      within(insightsAttention).getByRole("list", { name: "Spending change drivers" }),
+    ).toBeInTheDocument();
+    expect(
+      within(insightsAttention).getByRole("list", { name: "Net worth change evidence" }),
+    ).toBeInTheDocument();
+    expect(
+      within(insightsAttention).getByText(
+        "This appears because a stored card payment status is due.",
+      ),
+    ).toBeInTheDocument();
     expect(copy.spending.direction).toBe("decreased");
     expect(copy.netWorth.direction).toBe("increased");
     expect(copy.payment.cardId).toBe("card-visa");

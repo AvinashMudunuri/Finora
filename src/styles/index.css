@@ -754,6 +754,10 @@ textarea[aria-invalid="true"] {
   line-height: 1.5;
 }
 
+.insight-reason {
+  max-width: 40rem;
+}
+
 .entity-form {
   display: grid;
   gap: var(--space-4);

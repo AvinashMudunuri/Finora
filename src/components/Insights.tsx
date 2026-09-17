@@ -56,8 +56,8 @@ export function Insights({
         <div className="page-intro">
           <h1>Insights</h1>
           <p className="page-lede">
-            What deserves attention from stored records, with the evidence and
-            the next inspection. No recommendations are invented.
+            Why each attention item appears, the stored evidence behind it, and
+            the existing inspection path. No recommendations are invented.
           </p>
         </div>
 
@@ -65,14 +65,16 @@ export function Insights({
           <div className="panel-header">
             <h2 id="attention-heading">Attention</h2>
             <p className="panel-copy">
-              Ordered by stored payment risk, utilization, then meaningful
-              monthly change.
+              Same attention items as the Dashboard, with the stored reason and
+              evidence. Ordered by stored payment risk, utilization, then
+              meaningful monthly change.
             </p>
           </div>
           <AttentionInsights
             accounts={accounts}
             cards={cards}
             transactions={transactions}
+            presentation="evidence"
             onOpenCard={onOpenCard}
             onOpenTransaction={onOpenTransaction}
             onShowSpending={onShowSpending}

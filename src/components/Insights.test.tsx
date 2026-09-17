@@ -79,6 +79,19 @@ describe("Insights", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByText("Visa Rewards · Due")).toBeInTheDocument();
+    expect(
+      screen.getByText("This appears because a stored card payment status is due."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "This appears because stored monthly spending changed from the previous activity month.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "This appears because stored net worth changed from the previous activity month.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("inspects spending, payment card, net worth, and net-worth evidence", async () => {

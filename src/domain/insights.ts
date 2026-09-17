@@ -165,3 +165,19 @@ export function attentionTitle(insight: AttentionInsight): string {
   }
   return "Attention";
 }
+
+export function attentionReason(insight: AttentionInsight): string {
+  if (insight.kind === "card-payment-overdue") {
+    return "This appears because a stored card payment status is overdue.";
+  }
+  if (insight.kind === "card-payment-due") {
+    return "This appears because a stored card payment status is due.";
+  }
+  if (insight.kind === "high-card-utilization") {
+    return "This appears because stored card utilization is at or above the existing threshold.";
+  }
+  if (insight.kind === "spending-change") {
+    return "This appears because stored monthly spending changed from the previous activity month.";
+  }
+  return "This appears because stored net worth changed from the previous activity month.";
+}
