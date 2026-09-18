@@ -961,15 +961,18 @@ textarea[aria-invalid="true"] {
     gap: 0.1rem;
   }
 
-  .history-table {
-    table-layout: fixed;
-  }
-
   .history-table th,
   .history-table td {
     padding: 0.45rem 0.2rem;
     font-size: 0.8125rem;
-    overflow-wrap: anywhere;
+    overflow-wrap: normal;
+    word-break: normal;
+    hyphens: none;
+  }
+
+  .history-table td,
+  .history-table th[scope="col"] {
+    white-space: nowrap;
   }
 
   .history-table th[scope="col"] {
