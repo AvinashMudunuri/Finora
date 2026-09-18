@@ -16,6 +16,7 @@ import {
   calculateMonthlyIncome,
   calculateMonthlySavings,
   calculateMonthlySpending,
+  calculateMonthlySpendingBreakdown,
   calculateAccountPeriodActivity,
   calculateNetWorth,
   calculateNetWorthChange,
@@ -711,6 +712,194 @@ describe("monthly spending", () => {
       87.42,
       2,
     );
+  });
+});
+
+describe("monthly spending source breakdown", () => {
+  it("attributes only expenses as account-funded spending", () => {
+    const result = calculateMonthlySpendingBreakdown(
+      [
+        transaction({
+          id: "expense",
+          date: "2026-08-10",
+          amount: 20,
+          eventType: "expense",
+          accountId: "acc-checking",
+        }),
+      ],
+      2026,
+      8,
+    );
+
+    expect(result).toEqual({
+      year: 2026,
+      month: 8,
+      accountFunded: 20,
+      cardPurchases: 0,
+      total: 20,
+      currency: "USD",
+    });
+  });
+
+  it("attributes only card purchases as card-funded spending", () => {
+    const result = calculateMonthlySpendingBreakdown(
+      [
+        transaction({
+          id: "card-buy",
+          date: "2026-08-11",
+          amount: 15,
+          eventType: "card_purchase",
+          cardId: "card-visa",
+        }),
+      ],
+      2026,
+      8,
+    );
+
+    expect(result).toEqual({
+      year: 2026,
+      month: 8,
+      accountFunded: 0,
+      cardPurchases: 15,
+      total: 15,
+      currency: "USD",
+    });
+  });
+
+  it("splits mixed account and card spending without changing the total", () => {
+    const transactions = [
+      transaction({
+        id: "expense",
+        date: "2026-08-10",
+        amount: 20,
+        eventType: "expense",
+        accountId: "acc-checking",
+      }),
+      transaction({
+        id: "card-buy",
+        date: "2026-08-11",
+        amount: 15,
+        eventType: "card_purchase",
+        cardId: "card-visa",
+      }),
+    ];
+    const result = calculateMonthlySpendingBreakdown(transactions, 2026, 8);
+
+    expect(result.accountFunded).toBe(20);
+    expect(result.cardPurchases).toBe(15);
+    expect(result.total).toBe(35);
+    expect(result.total).toBe(calculateMonthlySpending(transactions, 2026, 8).total);
+  });
+
+  it("excludes card payments from both components", () => {
+    const result = calculateMonthlySpendingBreakdown(
+      [
+        transaction({
+          id: "card-buy",
+          date: "2026-08-11",
+          amount: 15,
+          eventType: "card_purchase",
+          cardId: "card-visa",
+        }),
+        transaction({
+          id: "card-pay",
+          date: "2026-08-14",
+          amount: 15,
+          eventType: "card_payment",
+          accountId: "acc-checking",
+          cardId: "card-visa",
+        }),
+      ],
+      2026,
+      8,
+    );
+
+    expect(result.accountFunded).toBe(0);
+    expect(result.cardPurchases).toBe(15);
+    expect(result.total).toBe(15);
+  });
+
+  it("excludes transfers, investments, and income", () => {
+    const result = calculateMonthlySpendingBreakdown(
+      [
+        transaction({
+          id: "expense",
+          date: "2026-08-10",
+          amount: 20,
+          eventType: "expense",
+          accountId: "acc-checking",
+        }),
+        transaction({
+          id: "income",
+          date: "2026-08-12",
+          amount: 100,
+          eventType: "income",
+          accountId: "acc-checking",
+        }),
+        transaction({
+          id: "transfer",
+          date: "2026-08-13",
+          amount: 40,
+          eventType: "transfer",
+          accountId: "acc-checking",
+          counterpartyAccountId: "acc-savings",
+        }),
+        transaction({
+          id: "invest",
+          date: "2026-08-15",
+          amount: 8,
+          eventType: "investment",
+          accountId: "acc-investment",
+        }),
+      ],
+      2026,
+      8,
+    );
+
+    expect(result.accountFunded).toBe(20);
+    expect(result.cardPurchases).toBe(0);
+    expect(result.total).toBe(20);
+  });
+
+  it("returns zeros for an empty month", () => {
+    expect(calculateMonthlySpendingBreakdown([], 2026, 8)).toEqual({
+      year: 2026,
+      month: 8,
+      accountFunded: 0,
+      cardPurchases: 0,
+      total: 0,
+      currency: "USD",
+    });
+  });
+
+  it("reconciles with existing monthly spending for every fixture month", () => {
+    const september = calculateMonthlySpendingBreakdown(
+      fixtureTransactions,
+      2026,
+      9,
+    );
+    const august = calculateMonthlySpendingBreakdown(
+      fixtureTransactions,
+      2026,
+      8,
+    );
+
+    expect(september.accountFunded).toBeCloseTo(87.42, 2);
+    expect(september.cardPurchases).toBe(0);
+    expect(september.total).toBeCloseTo(87.42, 2);
+    expect(september.total).toBeCloseTo(
+      calculateMonthlySpending(fixtureTransactions, 2026, 9).total,
+      2,
+    );
+
+    expect(august.accountFunded).toBeCloseTo(1856.5, 2);
+    expect(august.cardPurchases).toBeCloseTo(193.11, 2);
+    expect(august.total).toBeCloseTo(2049.61, 2);
+    expect(august.total).toBeCloseTo(
+      calculateMonthlySpending(fixtureTransactions, 2026, 8).total,
+      2,
+    );
+    expect(august.accountFunded + august.cardPurchases).toBeCloseTo(august.total, 2);
   });
 });
 

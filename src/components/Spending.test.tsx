@@ -10,6 +10,7 @@ import {
   calculateMonthlyIncome,
   calculateMonthlySavings,
   calculateMonthlySpending,
+  calculateMonthlySpendingBreakdown,
   calculateSpendingChange,
   listRecentMonthlyFlows,
   listSpendingChangeDrivers,
@@ -63,12 +64,40 @@ describe("Finora spending view", () => {
       within(selectedMonth).getByText(formatCurrency(income.total, "USD")),
     ).toBeInTheDocument();
     expect(
-      within(selectedMonth).getByText(formatCurrency(spending.total, "USD")),
-    ).toBeInTheDocument();
+      within(selectedMonth).getAllByText(formatCurrency(spending.total, "USD"))
+        .length,
+    ).toBeGreaterThanOrEqual(2);
     expect(
       within(selectedMonth).getByText(formatCurrency(savings.savings, "USD")),
     ).toBeInTheDocument();
     expect(screen.getByText("Income − spending")).toBeInTheDocument();
+
+    const breakdown = calculateMonthlySpendingBreakdown(
+      fixtureTransactions,
+      2026,
+      9,
+    );
+    const source = screen.getByRole("region", {
+      name: "Where this spending came from",
+    });
+    expect(within(source).getByText("Account-funded")).toBeInTheDocument();
+    expect(within(source).getByText("Card purchases")).toBeInTheDocument();
+    expect(
+      within(source).getByText(
+        formatCurrency(breakdown.accountFunded, breakdown.currency),
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(source).getByText(
+        formatCurrency(breakdown.cardPurchases, breakdown.currency),
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(source).getByText(
+        `Account-funded + card purchases = ${formatCurrency(breakdown.total, breakdown.currency)}`,
+      ),
+    ).toBeInTheDocument();
+    expect(breakdown.total).toBe(spending.total);
   });
 
   it("moves to the previous month using the existing calculations", async () => {
@@ -89,6 +118,31 @@ describe("Finora spending view", () => {
     expect(
       within(selectedMonth).getByText(formatCurrency(august.savings, "USD")),
     ).toBeInTheDocument();
+
+    const breakdown = calculateMonthlySpendingBreakdown(
+      fixtureTransactions,
+      2026,
+      8,
+    );
+    const source = within(selectedMonth).getByRole("region", {
+      name: "Where this spending came from",
+    });
+    expect(
+      within(source).getByText(
+        formatCurrency(breakdown.accountFunded, breakdown.currency),
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(source).getByText(
+        formatCurrency(breakdown.cardPurchases, breakdown.currency),
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(source).getByText(
+        `Account-funded + card purchases = ${formatCurrency(breakdown.total, breakdown.currency)}`,
+      ),
+    ).toBeInTheDocument();
+    expect(breakdown.total).toBe(august.spending);
   });
 
   it("moves to the next month and shows zeros when the month is empty", async () => {

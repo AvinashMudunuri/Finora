@@ -23,6 +23,15 @@ export type MonthlySpendingResult = {
   currency: CurrencyCode;
 };
 
+export type MonthlySpendingBreakdown = {
+  year: number;
+  month: number;
+  accountFunded: number;
+  cardPurchases: number;
+  total: number;
+  currency: CurrencyCode;
+};
+
 export function isAssetAccount(account: Account): boolean {
   return (
     account.type === "bank" ||
@@ -230,6 +239,39 @@ export function calculateMonthlySpending(
     year,
     month,
     total,
+    currency: sharedCurrency(transactions.map((transaction) => transaction.currency)),
+  };
+}
+
+export function calculateMonthlySpendingBreakdown(
+  transactions: Transaction[],
+  year: number,
+  month: number,
+): MonthlySpendingBreakdown {
+  let accountFunded = 0;
+  let cardPurchases = 0;
+
+  for (const transaction of transactions) {
+    if (!isInMonth(transaction.date, year, month)) {
+      continue;
+    }
+
+    if (transaction.eventType === "expense") {
+      accountFunded += transaction.amount;
+      continue;
+    }
+
+    if (transaction.eventType === "card_purchase") {
+      cardPurchases += transaction.amount;
+    }
+  }
+
+  return {
+    year,
+    month,
+    accountFunded,
+    cardPurchases,
+    total: accountFunded + cardPurchases,
     currency: sharedCurrency(transactions.map((transaction) => transaction.currency)),
   };
 }
