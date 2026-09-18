@@ -89,6 +89,10 @@ export function calculateLiquidAssets(accounts: Account[]): number {
   return calculateAssetBreakdown(accounts).liquid;
 }
 
+export function listInvestmentAccounts(accounts: Account[]): Account[] {
+  return accounts.filter((account) => account.type === "investment");
+}
+
 export function calculateCardUtilization(
   cards: Card[],
 ): CardUtilizationResult[] {
