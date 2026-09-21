@@ -3,6 +3,7 @@ import {
   calculateMonthlyIncome,
   calculateMonthlySavings,
   calculateMonthlySpending,
+  calculateMonthlySpendingBreakdown,
   calculateSpendingChange,
   latestActivityMonth,
   listMonthlyIncomeTransactions,
@@ -91,6 +92,11 @@ export function Spending({
     selected.month,
   );
   const spending = calculateMonthlySpending(
+    transactions,
+    selected.year,
+    selected.month,
+  );
+  const spendingSource = calculateMonthlySpendingBreakdown(
     transactions,
     selected.year,
     selected.month,
@@ -364,6 +370,42 @@ export function Spending({
               <p className="stat-note">Income − spending</p>
             </article>
           </div>
+
+          <section
+            className="spending-source-panel"
+            aria-labelledby="spending-source-heading"
+          >
+            <h3 id="spending-source-heading">Where this spending came from</h3>
+            <p className="panel-copy">
+              How this month's spending is composed from stored expenses and card
+              purchases. Card payments, transfers, investments, and income are not
+              spending.
+            </p>
+            <dl className="spending-source">
+              <div>
+                <dt>Account-funded</dt>
+                <dd>
+                  {formatCurrency(
+                    spendingSource.accountFunded,
+                    spendingSource.currency,
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt>Card purchases</dt>
+                <dd>
+                  {formatCurrency(
+                    spendingSource.cardPurchases,
+                    spendingSource.currency,
+                  )}
+                </dd>
+              </div>
+            </dl>
+            <p className="stat-note">
+              Account-funded + card purchases ={" "}
+              {formatCurrency(spendingSource.total, spendingSource.currency)}
+            </p>
+          </section>
         </section>
 
         {empty ? (

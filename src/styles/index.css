@@ -469,6 +469,42 @@ textarea[aria-invalid="true"] {
   font-weight: 700;
 }
 
+.spending-source-panel {
+  margin-top: 1.1rem;
+  padding-top: 0.95rem;
+  border-top: 1px solid var(--color-border);
+  min-width: 0;
+}
+
+.spending-source-panel h3 {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+}
+
+.spending-source {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem 0.9rem;
+  margin: 0.75rem 0 0.45rem;
+}
+
+.spending-source dt {
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.spending-source dd {
+  margin: 0.2rem 0 0;
+  min-width: 0;
+  font-family: var(--mono-number);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .card-transactions {
   margin-top: 1.25rem;
 }
