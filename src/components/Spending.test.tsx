@@ -7,10 +7,12 @@ import {
   fixtureTransactions,
 } from "../data/fixtures.ts";
 import {
+  calculateIncomeChange,
   calculateMonthlyIncome,
   calculateMonthlySavings,
   calculateMonthlySpending,
   calculateMonthlySpendingBreakdown,
+  calculateSavingsChange,
   calculateSpendingChange,
   listRecentMonthlyFlows,
   listSpendingChangeDrivers,
@@ -70,7 +72,7 @@ describe("Finora spending view", () => {
     expect(
       within(selectedMonth).getByText(formatCurrency(savings.savings, "USD")),
     ).toBeInTheDocument();
-    expect(screen.getByText("Income − spending")).toBeInTheDocument();
+    expect(within(selectedMonth).getByText("Income − spending")).toBeInTheDocument();
 
     const breakdown = calculateMonthlySpendingBreakdown(
       fixtureTransactions,
@@ -355,5 +357,89 @@ describe("Finora spending view", () => {
     expect(
       within(selectedMonth).getByText(formatCurrency(rows[1]!.income, "USD")),
     ).toBeInTheDocument();
+  });
+
+  it("shows income and savings change from the existing monthly calculations", () => {
+    renderSpending();
+
+    const income = calculateIncomeChange(fixtureTransactions);
+    const savings = calculateSavingsChange(fixtureTransactions);
+    expect(income).not.toBeNull();
+    expect(savings).not.toBeNull();
+
+    const region = screen.getByRole("region", {
+      name: "Income and savings change",
+    });
+    expect(
+      within(region).getByRole("heading", { name: "Income increased" }),
+    ).toBeInTheDocument();
+    expect(
+      within(region).getByRole("heading", { name: "Savings increased" }),
+    ).toBeInTheDocument();
+    expect(
+      within(region).getByText(
+        `You received ${formatCurrency(income!.currentIncome, income!.currency)} this month, compared with ${formatCurrency(income!.previousIncome, income!.currency)} last month.`,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(region).getByText(
+        `You retained ${formatCurrency(savings!.currentSavings, savings!.currency)} this month, compared with ${formatCurrency(savings!.previousSavings, savings!.currency)} last month.`,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(region).getByText(
+        formatCurrency(savings!.currentIncome, savings!.currency),
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(region).getByText(
+        formatCurrency(savings!.previousIncome, savings!.currency),
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(region).getByText(
+        formatCurrency(savings!.currentSpending, savings!.currency),
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(region).getByText(
+        formatCurrency(savings!.previousSpending, savings!.currency),
+      ),
+    ).toBeInTheDocument();
+    expect(within(region).getByText("Income − spending")).toBeInTheDocument();
+    expect(savings!.currentSavings).toBeCloseTo(
+      savings!.currentIncome - savings!.currentSpending,
+      2,
+    );
+    expect(income!.currentIncome).toBeCloseTo(3200, 2);
+    expect(income!.previousIncome).toBeCloseTo(4.12, 2);
+  });
+
+  it("keeps income and savings change on the latest activity month when another month is selected", async () => {
+    const user = userEvent.setup();
+    renderSpending();
+
+    await user.click(screen.getByRole("button", { name: "Previous month" }));
+
+    const income = calculateIncomeChange(fixtureTransactions);
+    const region = screen.getByRole("region", {
+      name: "Income and savings change",
+    });
+    expect(screen.getByRole("heading", { name: "August 2026" })).toBeInTheDocument();
+    expect(
+      within(region).getAllByText(
+        `${formatMonth(income!.currentPeriod.year, income!.currentPeriod.month)} compared with ${formatMonth(income!.previousPeriod.year, income!.previousPeriod.month)}`,
+      ).length,
+    ).toBeGreaterThanOrEqual(2);
+  });
+
+  it("omits income and savings change when there is no activity month", () => {
+    renderSpending({ accounts: [harborAccount()], transactions: [] });
+
+    expect(
+      screen.queryByRole("region", { name: "Income and savings change" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Income increased")).not.toBeInTheDocument();
+    expect(screen.queryByText("Savings increased")).not.toBeInTheDocument();
   });
 });

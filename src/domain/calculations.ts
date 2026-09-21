@@ -408,6 +408,100 @@ export function calculateSpendingChange(
   };
 }
 
+export type IncomeChangeResult = {
+  currentPeriod: SpendingChangePeriod;
+  previousPeriod: SpendingChangePeriod;
+  currentIncome: number;
+  previousIncome: number;
+  absoluteChange: number;
+  direction: SpendingChangeDirection;
+  currency: CurrencyCode;
+};
+
+export function calculateIncomeChange(
+  transactions: Transaction[],
+): IncomeChangeResult | null {
+  const currentPeriod = latestActivityMonth(transactions);
+
+  if (!currentPeriod) {
+    return null;
+  }
+
+  const previousPeriod = previousCalendarMonth(currentPeriod);
+  const current = calculateMonthlyIncome(
+    transactions,
+    currentPeriod.year,
+    currentPeriod.month,
+  );
+  const previous = calculateMonthlyIncome(
+    transactions,
+    previousPeriod.year,
+    previousPeriod.month,
+  );
+  const absoluteChange = Math.abs(current.total - previous.total);
+
+  return {
+    currentPeriod,
+    previousPeriod,
+    currentIncome: current.total,
+    previousIncome: previous.total,
+    absoluteChange,
+    direction: spendingChangeDirection(current.total, previous.total),
+    currency: current.currency,
+  };
+}
+
+export type SavingsChangeResult = {
+  currentPeriod: SpendingChangePeriod;
+  previousPeriod: SpendingChangePeriod;
+  currentSavings: number;
+  previousSavings: number;
+  currentIncome: number;
+  previousIncome: number;
+  currentSpending: number;
+  previousSpending: number;
+  absoluteChange: number;
+  direction: SpendingChangeDirection;
+  currency: CurrencyCode;
+};
+
+export function calculateSavingsChange(
+  transactions: Transaction[],
+): SavingsChangeResult | null {
+  const currentPeriod = latestActivityMonth(transactions);
+
+  if (!currentPeriod) {
+    return null;
+  }
+
+  const previousPeriod = previousCalendarMonth(currentPeriod);
+  const current = calculateMonthlySavings(
+    transactions,
+    currentPeriod.year,
+    currentPeriod.month,
+  );
+  const previous = calculateMonthlySavings(
+    transactions,
+    previousPeriod.year,
+    previousPeriod.month,
+  );
+  const absoluteChange = Math.abs(current.savings - previous.savings);
+
+  return {
+    currentPeriod,
+    previousPeriod,
+    currentSavings: current.savings,
+    previousSavings: previous.savings,
+    currentIncome: current.income,
+    previousIncome: previous.income,
+    currentSpending: current.spending,
+    previousSpending: previous.spending,
+    absoluteChange,
+    direction: spendingChangeDirection(current.savings, previous.savings),
+    currency: current.currency,
+  };
+}
+
 export const SPENDING_CHANGE_DRIVER_LIMIT = 3;
 
 export type SpendingChangeDriver = {

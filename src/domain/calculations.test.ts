@@ -20,6 +20,8 @@ import {
   calculateAccountPeriodActivity,
   calculateNetWorth,
   calculateNetWorthChange,
+  calculateIncomeChange,
+  calculateSavingsChange,
   calculateSpendingChange,
   listActivityMonths,
   listInvestmentAccounts,
@@ -1052,6 +1054,271 @@ describe("monthly savings", () => {
     expect(august.income).toBeCloseTo(4.12, 2);
     expect(august.spending).toBeCloseTo(2049.61, 2);
     expect(august.savings).toBeCloseTo(4.12 - 2049.61, 2);
+  });
+});
+
+describe("income change", () => {
+  it("compares latest-month income with the previous calendar month", () => {
+    const result = calculateIncomeChange([
+      transaction({
+        id: "prev",
+        date: "2026-08-10",
+        amount: 100,
+        eventType: "income",
+        accountId: "acc-checking",
+      }),
+      transaction({
+        id: "current",
+        date: "2026-09-02",
+        amount: 250,
+        eventType: "income",
+        accountId: "acc-checking",
+      }),
+    ]);
+
+    expect(result?.currentPeriod).toEqual({ year: 2026, month: 9 });
+    expect(result?.previousPeriod).toEqual({ year: 2026, month: 8 });
+    expect(result?.currentIncome).toBe(250);
+    expect(result?.previousIncome).toBe(100);
+    expect(result?.absoluteChange).toBe(150);
+    expect(result?.direction).toBe("increased");
+  });
+
+  it("does not treat expense, card purchase, transfer, card payment, or investment as income", () => {
+    const result = calculateIncomeChange([
+      transaction({
+        id: "prev-income",
+        date: "2026-08-03",
+        amount: 80,
+        eventType: "income",
+        accountId: "acc-checking",
+      }),
+      transaction({
+        id: "prev-expense",
+        date: "2026-08-04",
+        amount: 20,
+        eventType: "expense",
+        accountId: "acc-checking",
+      }),
+      transaction({
+        id: "current-card",
+        date: "2026-09-02",
+        amount: 30,
+        eventType: "card_purchase",
+        cardId: "card-visa",
+      }),
+      transaction({
+        id: "current-transfer",
+        date: "2026-09-03",
+        amount: 40,
+        eventType: "transfer",
+        accountId: "acc-checking",
+        counterpartyAccountId: "acc-savings",
+      }),
+      transaction({
+        id: "current-pay",
+        date: "2026-09-04",
+        amount: 15,
+        eventType: "card_payment",
+        accountId: "acc-checking",
+        cardId: "card-visa",
+      }),
+      transaction({
+        id: "current-invest",
+        date: "2026-09-05",
+        amount: 8,
+        eventType: "investment",
+        accountId: "acc-investment",
+      }),
+    ]);
+
+    expect(result?.currentIncome).toBe(0);
+    expect(result?.previousIncome).toBe(80);
+    expect(result?.direction).toBe("decreased");
+  });
+
+  it("reports unchanged when both months have the same income", () => {
+    const result = calculateIncomeChange([
+      transaction({
+        id: "prev",
+        date: "2026-08-10",
+        amount: 50,
+        eventType: "income",
+        accountId: "acc-checking",
+      }),
+      transaction({
+        id: "current",
+        date: "2026-09-02",
+        amount: 50,
+        eventType: "income",
+        accountId: "acc-checking",
+      }),
+    ]);
+
+    expect(result?.absoluteChange).toBe(0);
+    expect(result?.direction).toBe("unchanged");
+  });
+
+  it("returns null when there is no activity month", () => {
+    expect(calculateIncomeChange([])).toBeNull();
+  });
+
+  it("reuses monthly income for the fixture September and August", () => {
+    const result = calculateIncomeChange(fixtureTransactions);
+    const current = calculateMonthlyIncome(fixtureTransactions, 2026, 9);
+    const previous = calculateMonthlyIncome(fixtureTransactions, 2026, 8);
+
+    expect(result?.currentIncome).toBeCloseTo(current.total, 2);
+    expect(result?.previousIncome).toBeCloseTo(previous.total, 2);
+    expect(result?.currentIncome).toBeCloseTo(3200, 2);
+    expect(result?.previousIncome).toBeCloseTo(4.12, 2);
+    expect(result?.direction).toBe("increased");
+  });
+});
+
+describe("savings change", () => {
+  it("compares latest-month savings using income minus spending", () => {
+    const result = calculateSavingsChange([
+      transaction({
+        id: "prev-income",
+        date: "2026-08-02",
+        amount: 200,
+        eventType: "income",
+        accountId: "acc-checking",
+      }),
+      transaction({
+        id: "prev-spend",
+        date: "2026-08-10",
+        amount: 50,
+        eventType: "expense",
+        accountId: "acc-checking",
+      }),
+      transaction({
+        id: "current-income",
+        date: "2026-09-01",
+        amount: 300,
+        eventType: "income",
+        accountId: "acc-checking",
+      }),
+      transaction({
+        id: "current-spend",
+        date: "2026-09-04",
+        amount: 40,
+        eventType: "card_purchase",
+        cardId: "card-visa",
+      }),
+    ]);
+
+    expect(result?.currentPeriod).toEqual({ year: 2026, month: 9 });
+    expect(result?.previousPeriod).toEqual({ year: 2026, month: 8 });
+    expect(result?.currentIncome).toBe(300);
+    expect(result?.previousIncome).toBe(200);
+    expect(result?.currentSpending).toBe(40);
+    expect(result?.previousSpending).toBe(50);
+    expect(result?.currentSavings).toBe(260);
+    expect(result?.previousSavings).toBe(150);
+    expect(result?.absoluteChange).toBe(110);
+    expect(result?.direction).toBe("increased");
+    expect(result?.currentSavings).toBe(result!.currentIncome - result!.currentSpending);
+    expect(result?.previousSavings).toBe(
+      result!.previousIncome - result!.previousSpending,
+    );
+  });
+
+  it("does not let transfer, card payment, or investment change savings", () => {
+    const result = calculateSavingsChange([
+      transaction({
+        id: "prev-income",
+        date: "2026-08-02",
+        amount: 100,
+        eventType: "income",
+        accountId: "acc-checking",
+      }),
+      transaction({
+        id: "prev-transfer",
+        date: "2026-08-04",
+        amount: 40,
+        eventType: "transfer",
+        accountId: "acc-checking",
+        counterpartyAccountId: "acc-savings",
+      }),
+      transaction({
+        id: "current-income",
+        date: "2026-09-01",
+        amount: 100,
+        eventType: "income",
+        accountId: "acc-checking",
+      }),
+      transaction({
+        id: "current-pay",
+        date: "2026-09-03",
+        amount: 25,
+        eventType: "card_payment",
+        accountId: "acc-checking",
+        cardId: "card-visa",
+      }),
+      transaction({
+        id: "current-invest",
+        date: "2026-09-04",
+        amount: 10,
+        eventType: "investment",
+        accountId: "acc-investment",
+      }),
+    ]);
+
+    expect(result?.currentSavings).toBe(100);
+    expect(result?.previousSavings).toBe(100);
+    expect(result?.direction).toBe("unchanged");
+  });
+
+  it("reports decreased savings when spending rises without more income", () => {
+    const result = calculateSavingsChange([
+      transaction({
+        id: "prev-income",
+        date: "2026-08-02",
+        amount: 100,
+        eventType: "income",
+        accountId: "acc-checking",
+      }),
+      transaction({
+        id: "current-income",
+        date: "2026-09-01",
+        amount: 100,
+        eventType: "income",
+        accountId: "acc-checking",
+      }),
+      transaction({
+        id: "current-spend",
+        date: "2026-09-04",
+        amount: 80,
+        eventType: "expense",
+        accountId: "acc-checking",
+      }),
+    ]);
+
+    expect(result?.currentSavings).toBe(20);
+    expect(result?.previousSavings).toBe(100);
+    expect(result?.direction).toBe("decreased");
+  });
+
+  it("returns null when there is no activity month", () => {
+    expect(calculateSavingsChange([])).toBeNull();
+  });
+
+  it("reuses monthly savings for the fixture September and August", () => {
+    const result = calculateSavingsChange(fixtureTransactions);
+    const current = calculateMonthlySavings(fixtureTransactions, 2026, 9);
+    const previous = calculateMonthlySavings(fixtureTransactions, 2026, 8);
+
+    expect(result?.currentSavings).toBeCloseTo(current.savings, 2);
+    expect(result?.previousSavings).toBeCloseTo(previous.savings, 2);
+    expect(result?.currentIncome).toBeCloseTo(current.income, 2);
+    expect(result?.currentSpending).toBeCloseTo(current.spending, 2);
+    expect(result?.previousIncome).toBeCloseTo(previous.income, 2);
+    expect(result?.previousSpending).toBeCloseTo(previous.spending, 2);
+    expect(result?.currentSavings).toBeCloseTo(3112.58, 2);
+    expect(result?.previousSavings).toBeCloseTo(4.12 - 2049.61, 2);
+    expect(result?.direction).toBe("increased");
   });
 });
 
