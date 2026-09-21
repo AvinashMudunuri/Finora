@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
 import {
+  calculateIncomeChange,
   calculateMonthlyIncome,
   calculateMonthlySavings,
   calculateMonthlySpending,
   calculateMonthlySpendingBreakdown,
+  calculateSavingsChange,
   calculateSpendingChange,
   latestActivityMonth,
   listMonthlyIncomeTransactions,
@@ -58,6 +60,30 @@ function spendingChangeHeadline(direction: SpendingChangeDirection): string {
   }
 
   return "Spending unchanged";
+}
+
+function incomeChangeHeadline(direction: SpendingChangeDirection): string {
+  if (direction === "increased") {
+    return "Income increased";
+  }
+
+  if (direction === "decreased") {
+    return "Income decreased";
+  }
+
+  return "Income unchanged";
+}
+
+function savingsChangeHeadline(direction: SpendingChangeDirection): string {
+  if (direction === "increased") {
+    return "Savings increased";
+  }
+
+  if (direction === "decreased") {
+    return "Savings decreased";
+  }
+
+  return "Savings unchanged";
 }
 
 export function Spending({
@@ -119,6 +145,8 @@ export function Spending({
   const empty =
     incomeTransactions.length === 0 && spendingTransactions.length === 0;
   const spendingChange = calculateSpendingChange(transactions);
+  const incomeChange = calculateIncomeChange(transactions);
+  const savingsChange = calculateSavingsChange(transactions);
   const drivers = spendingChange
     ? listSpendingChangeDrivers(transactions, spendingChange)
     : [];
@@ -260,6 +288,134 @@ export function Spending({
                 </>
               ) : null}
             </article>
+          </section>
+        ) : null}
+
+        {incomeChange || savingsChange ? (
+          <section
+            className="panel"
+            aria-labelledby="income-savings-change-heading"
+          >
+            <div className="panel-header">
+              <h2 id="income-savings-change-heading">
+                Income and savings change
+              </h2>
+              <p className="panel-copy">
+                How income and the resulting savings this month compare with the
+                previous month, using the same monthly income and savings
+                calculations. Transfers and card payments are not income or
+                spending.
+              </p>
+            </div>
+
+            <div className="overview-grid change-grid">
+              {incomeChange ? (
+                <article
+                  className="insight-card"
+                  data-tone="observation"
+                  data-direction={incomeChange.direction}
+                >
+                  <h3>{incomeChangeHeadline(incomeChange.direction)}</h3>
+                  <p className="insight-body">
+                    You received{" "}
+                    {formatCurrency(
+                      incomeChange.currentIncome,
+                      incomeChange.currency,
+                    )}{" "}
+                    this month, compared with{" "}
+                    {formatCurrency(
+                      incomeChange.previousIncome,
+                      incomeChange.currency,
+                    )}{" "}
+                    last month.
+                  </p>
+                  <p className="stat-note">
+                    {formatMonth(
+                      incomeChange.currentPeriod.year,
+                      incomeChange.currentPeriod.month,
+                    )}{" "}
+                    compared with{" "}
+                    {formatMonth(
+                      incomeChange.previousPeriod.year,
+                      incomeChange.previousPeriod.month,
+                    )}
+                  </p>
+                </article>
+              ) : null}
+
+              {savingsChange ? (
+                <article
+                  className="insight-card"
+                  data-tone="observation"
+                  data-direction={savingsChange.direction}
+                >
+                  <h3>{savingsChangeHeadline(savingsChange.direction)}</h3>
+                  <p className="insight-body">
+                    You retained{" "}
+                    {formatCurrency(
+                      savingsChange.currentSavings,
+                      savingsChange.currency,
+                    )}{" "}
+                    this month, compared with{" "}
+                    {formatCurrency(
+                      savingsChange.previousSavings,
+                      savingsChange.currency,
+                    )}{" "}
+                    last month.
+                  </p>
+                  <dl className="position-breakdown">
+                    <div>
+                      <dt>Income this month</dt>
+                      <dd>
+                        {formatCurrency(
+                          savingsChange.currentIncome,
+                          savingsChange.currency,
+                        )}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Income last month</dt>
+                      <dd>
+                        {formatCurrency(
+                          savingsChange.previousIncome,
+                          savingsChange.currency,
+                        )}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Spending this month</dt>
+                      <dd>
+                        {formatCurrency(
+                          savingsChange.currentSpending,
+                          savingsChange.currency,
+                        )}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Spending last month</dt>
+                      <dd>
+                        {formatCurrency(
+                          savingsChange.previousSpending,
+                          savingsChange.currency,
+                        )}
+                      </dd>
+                    </div>
+                  </dl>
+                  <p className="stat-note">Income − spending</p>
+                  <p className="stat-note">
+                    {formatMonth(
+                      savingsChange.currentPeriod.year,
+                      savingsChange.currentPeriod.month,
+                    )}{" "}
+                    compared with{" "}
+                    {formatMonth(
+                      savingsChange.previousPeriod.year,
+                      savingsChange.previousPeriod.month,
+                    )}
+                  </p>
+                </article>
+              ) : null}
+            </div>
           </section>
         ) : null}
 

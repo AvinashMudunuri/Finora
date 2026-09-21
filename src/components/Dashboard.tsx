@@ -1,8 +1,10 @@
 import {
   calculateAssetBreakdown,
+  calculateIncomeChange,
   calculateMonthlySavings,
   calculateNetWorth,
   calculateNetWorthChange,
+  calculateSavingsChange,
   calculateSpendingChange,
   latestActivityMonth,
   listCardPaymentObligations,
@@ -70,6 +72,8 @@ export function Dashboard({
   );
   const netWorthChange = calculateNetWorthChange(accounts, cards, transactions);
   const spendingChange = calculateSpendingChange(transactions);
+  const incomeChange = calculateIncomeChange(transactions);
+  const savingsChange = calculateSavingsChange(transactions);
   const netWorthHistory = listMonthlyNetWorthHistory(
     accounts,
     cards,
@@ -247,13 +251,13 @@ export function Dashboard({
           <div className="panel-header">
             <h2 id="change-heading">What changed</h2>
             <p className="panel-copy">
-              Existing net-worth and spending comparisons for stored months.
-              Unchanged values stay visible here. Attention only includes
-              meaningful movement.
+              Existing net-worth, spending, income, and savings comparisons for
+              stored months. Unchanged values stay visible here. Attention only
+              includes meaningful movement.
             </p>
           </div>
 
-          <div className="overview-grid">
+          <div className="overview-grid change-grid">
             <article className="stat-card">
               <h3>Net worth change</h3>
               {netWorthChange ? (
@@ -367,6 +371,168 @@ export function Dashboard({
               ) : (
                 <p className="stat-note">
                   No stored months to compare spending.
+                </p>
+              )}
+            </article>
+            <article className="stat-card">
+              <h3>Income change</h3>
+              {incomeChange ? (
+                <>
+                  <p className="stat-value">
+                    {formatCurrency(
+                      signedChangeAmount(
+                        incomeChange.direction,
+                        incomeChange.absoluteChange,
+                      ),
+                      incomeChange.currency,
+                      incomeChange.direction !== "unchanged",
+                    )}
+                  </p>
+                  <dl className="position-breakdown">
+                    <div>
+                      <dt>This month</dt>
+                      <dd>
+                        {formatCurrency(
+                          incomeChange.currentIncome,
+                          incomeChange.currency,
+                        )}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Last month</dt>
+                      <dd>
+                        {formatCurrency(
+                          incomeChange.previousIncome,
+                          incomeChange.currency,
+                        )}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Direction</dt>
+                      <dd>
+                        {netWorthChangeDirectionLabel(incomeChange.direction)}
+                      </dd>
+                    </div>
+                  </dl>
+                  <p className="stat-note">
+                    {formatMonth(
+                      incomeChange.currentPeriod.year,
+                      incomeChange.currentPeriod.month,
+                    )}{" "}
+                    compared with{" "}
+                    {formatMonth(
+                      incomeChange.previousPeriod.year,
+                      incomeChange.previousPeriod.month,
+                    )}
+                  </p>
+                </>
+              ) : (
+                <p className="stat-note">
+                  No stored months to compare income.
+                </p>
+              )}
+            </article>
+            <article className="stat-card">
+              <h3>Savings change</h3>
+              {savingsChange ? (
+                <>
+                  <p
+                    className={
+                      signedChangeAmount(
+                        savingsChange.direction,
+                        savingsChange.absoluteChange,
+                      ) < 0
+                        ? "stat-value stat-value-negative"
+                        : "stat-value"
+                    }
+                  >
+                    {formatCurrency(
+                      signedChangeAmount(
+                        savingsChange.direction,
+                        savingsChange.absoluteChange,
+                      ),
+                      savingsChange.currency,
+                      savingsChange.direction !== "unchanged",
+                    )}
+                  </p>
+                  <dl className="position-breakdown">
+                    <div>
+                      <dt>This month</dt>
+                      <dd>
+                        {formatCurrency(
+                          savingsChange.currentSavings,
+                          savingsChange.currency,
+                        )}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Last month</dt>
+                      <dd>
+                        {formatCurrency(
+                          savingsChange.previousSavings,
+                          savingsChange.currency,
+                        )}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Income this month</dt>
+                      <dd>
+                        {formatCurrency(
+                          savingsChange.currentIncome,
+                          savingsChange.currency,
+                        )}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Income last month</dt>
+                      <dd>
+                        {formatCurrency(
+                          savingsChange.previousIncome,
+                          savingsChange.currency,
+                        )}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Spending this month</dt>
+                      <dd>
+                        {formatCurrency(
+                          savingsChange.currentSpending,
+                          savingsChange.currency,
+                        )}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Spending last month</dt>
+                      <dd>
+                        {formatCurrency(
+                          savingsChange.previousSpending,
+                          savingsChange.currency,
+                        )}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Direction</dt>
+                      <dd>
+                        {netWorthChangeDirectionLabel(savingsChange.direction)}
+                      </dd>
+                    </div>
+                  </dl>
+                  <p className="stat-note">Income − spending</p>
+                  <p className="stat-note">
+                    {formatMonth(
+                      savingsChange.currentPeriod.year,
+                      savingsChange.currentPeriod.month,
+                    )}{" "}
+                    compared with{" "}
+                    {formatMonth(
+                      savingsChange.previousPeriod.year,
+                      savingsChange.previousPeriod.month,
+                    )}
+                  </p>
+                </>
+              ) : (
+                <p className="stat-note">
+                  No stored months to compare savings.
                 </p>
               )}
             </article>

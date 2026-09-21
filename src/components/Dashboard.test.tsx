@@ -11,10 +11,12 @@ import {
   calculateCardPaymentAttention,
   calculateHighCardUtilization,
   calculateLiquidAssets,
+  calculateIncomeChange,
   calculateMonthlySavings,
   calculateMonthlySpending,
   calculateNetWorth,
   calculateNetWorthChange,
+  calculateSavingsChange,
   calculateSpendingChange,
   latestActivityMonth,
   listCardPaymentObligations,
@@ -234,18 +236,108 @@ describe("Finora dashboard", () => {
         formatCurrency(netWorth!.absoluteChange, netWorth!.currency, true),
       ),
     ).toBeInTheDocument();
-    expect(within(change).getByText("Increased")).toBeInTheDocument();
     expect(
-      within(change).getByText(
+      within(
+        within(change)
+          .getByRole("heading", { name: "Net worth change" })
+          .closest("article")!,
+      ).getByText("Increased"),
+    ).toBeInTheDocument();
+    const spendingCard = within(change)
+      .getByRole("heading", { name: "Spending change" })
+      .closest("article")!;
+    expect(
+      within(spendingCard).getByText(
         formatCurrency(spending!.currentSpending, spending!.currency),
       ),
     ).toBeInTheDocument();
     expect(
-      within(change).getByText(
+      within(spendingCard).getByText(
         formatCurrency(spending!.previousSpending, spending!.currency),
       ),
     ).toBeInTheDocument();
-    expect(within(change).getByText("Decreased")).toBeInTheDocument();
+    expect(within(spendingCard).getByText("Decreased")).toBeInTheDocument();
+  });
+
+  it("shows income and savings change from the existing monthly calculations", () => {
+    renderDashboard();
+
+    const change = screen.getByRole("region", { name: "What changed" });
+    const income = calculateIncomeChange(fixtureTransactions);
+    const savings = calculateSavingsChange(fixtureTransactions);
+
+    expect(income).not.toBeNull();
+    expect(savings).not.toBeNull();
+    expect(within(change).getByRole("heading", { name: "Income change" })).toBeInTheDocument();
+    expect(within(change).getByRole("heading", { name: "Savings change" })).toBeInTheDocument();
+
+    const incomeCard = within(change)
+      .getByRole("heading", { name: "Income change" })
+      .closest("article");
+    const savingsCard = within(change)
+      .getByRole("heading", { name: "Savings change" })
+      .closest("article");
+
+    expect(incomeCard).not.toBeNull();
+    expect(savingsCard).not.toBeNull();
+    expect(
+      within(incomeCard!).getByText(
+        formatCurrency(income!.currentIncome, income!.currency),
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(incomeCard!).getByText(
+        formatCurrency(income!.previousIncome, income!.currency),
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(incomeCard!).getByText(
+        formatCurrency(income!.absoluteChange, income!.currency, true),
+      ),
+    ).toBeInTheDocument();
+    expect(within(incomeCard!).getByText("Increased")).toBeInTheDocument();
+    expect(
+      within(savingsCard!).getByText(
+        formatCurrency(savings!.currentSavings, savings!.currency),
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(savingsCard!).getByText(
+        formatCurrency(savings!.previousSavings, savings!.currency),
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(savingsCard!).getByText(
+        formatCurrency(savings!.currentIncome, savings!.currency),
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(savingsCard!).getByText(
+        formatCurrency(savings!.previousIncome, savings!.currency),
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(savingsCard!).getByText(
+        formatCurrency(savings!.currentSpending, savings!.currency),
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(savingsCard!).getByText(
+        formatCurrency(savings!.previousSpending, savings!.currency),
+      ),
+    ).toBeInTheDocument();
+    expect(within(savingsCard!).getByText("Income − spending")).toBeInTheDocument();
+    expect(within(savingsCard!).getByText("Increased")).toBeInTheDocument();
+    expect(savings!.currentSavings).toBeCloseTo(
+      savings!.currentIncome - savings!.currentSpending,
+      2,
+    );
+    expect(
+      screen.queryByRole("heading", { name: "Income increased" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Savings increased" }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows assets, liabilities, and the asset breakdown from existing calculations", () => {
@@ -946,9 +1038,11 @@ describe("Finora dashboard", () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByText("Largest spending in")).not.toBeInTheDocument();
     expect(
-      within(screen.getByRole("region", { name: "What changed" })).getByText(
-        "Unchanged",
-      ),
+      within(
+        within(screen.getByRole("region", { name: "What changed" }))
+          .getByRole("heading", { name: "Spending change" })
+          .closest("article")!,
+      ).getByText("Unchanged"),
     ).toBeInTheDocument();
     expect(
       within(screen.getByRole("region", { name: "What changed" })).getByRole(
@@ -1170,6 +1264,12 @@ describe("Finora dashboard", () => {
     ).toBeInTheDocument();
     expect(
       within(region).getByText("No stored months to compare spending."),
+    ).toBeInTheDocument();
+    expect(
+      within(region).getByText("No stored months to compare income."),
+    ).toBeInTheDocument();
+    expect(
+      within(region).getByText("No stored months to compare savings."),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("heading", { name: "Net worth increased" }),

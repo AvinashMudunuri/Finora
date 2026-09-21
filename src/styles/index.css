@@ -257,6 +257,10 @@ textarea[aria-invalid="true"] {
   grid-template-columns: 1fr;
 }
 
+.change-grid {
+  grid-template-columns: 1fr;
+}
+
 .flow-obligation {
   margin-top: 1.1rem;
   padding-top: 0.95rem;
@@ -294,7 +298,8 @@ textarea[aria-invalid="true"] {
   background: var(--color-card);
 }
 
-.overview-grid .stat-card:not(.stat-card-primary) {
+.overview-grid .stat-card:not(.stat-card-primary),
+.change-grid .stat-card:not(.stat-card-primary) {
   border: 0;
   border-radius: 0;
   box-shadow: none;
@@ -390,6 +395,7 @@ textarea[aria-invalid="true"] {
   font-variant-numeric: tabular-nums;
   font-weight: 700;
   text-align: right;
+  white-space: nowrap;
 }
 
 .account-grid {
@@ -1040,6 +1046,10 @@ textarea[aria-invalid="true"] {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .change-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .overview-grid .stat-card-primary {
     grid-column: 1 / -1;
   }
@@ -1078,6 +1088,10 @@ textarea[aria-invalid="true"] {
 @media (min-width: 960px) {
   .overview-grid {
     grid-template-columns: 1.35fr 1fr 1fr;
+  }
+
+  .change-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .overview-grid .stat-card-primary {
