@@ -92,9 +92,10 @@ describe("SiteHeader mobile", () => {
       screen.queryByText("Your financial life, clearly connected"),
     ).not.toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Primary" })).not.toBeInTheDocument();
-    expect(document.querySelector(".brand-mark")?.getAttribute("src")).toBe(
-      "/brand/finora-f-mark.png",
+    expect(screen.getByRole("img", { name: "Finora" }).getAttribute("src")).toBe(
+      "/brand/finora-wordmark.png",
     );
+    expect(document.querySelector(".brand-mark")).toBeNull();
   });
 
   it("opens the shared destinations and marks the active route", async () => {

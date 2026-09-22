@@ -178,18 +178,6 @@ textarea[aria-invalid="true"] {
   outline-offset: 2px;
 }
 
-.brand-compact {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.brand-mark {
-  display: block;
-  height: 28px;
-  width: auto;
-}
-
 .brand-wordmark-compact {
   height: 28px;
 }
