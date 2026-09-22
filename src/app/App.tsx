@@ -28,6 +28,7 @@ import { Dashboard } from "../components/Dashboard.tsx";
 import { Insights } from "../components/Insights.tsx";
 import { Spending } from "../components/Spending.tsx";
 import { Transactions } from "../components/Transactions.tsx";
+import type { AppView } from "../navigation/primary.ts";
 import {
   fixtureAccounts,
   fixtureCards,
@@ -91,14 +92,6 @@ function initialCards(): Card[] {
     appCards,
   );
 }
-
-type AppView =
-  | "dashboard"
-  | "accounts"
-  | "cards"
-  | "transactions"
-  | "spending"
-  | "insights";
 
 export default function App({
   accountGateway,
