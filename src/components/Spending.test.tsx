@@ -21,6 +21,17 @@ import { formatCurrency, formatMonth } from "../domain/finance.ts";
 import type { Account, Transaction } from "../domain/types.ts";
 import { Spending } from "./Spending.tsx";
 
+function comparedInMonths(
+  verb: "spent" | "received" | "retained",
+  currentAmount: number,
+  previousAmount: number,
+  currency: string,
+  currentPeriod: { year: number; month: number },
+  previousPeriod: { year: number; month: number },
+): string {
+  return `You ${verb} ${formatCurrency(currentAmount, currency)} in ${formatMonth(currentPeriod.year, currentPeriod.month)}, compared with ${formatCurrency(previousAmount, currency)} in ${formatMonth(previousPeriod.year, previousPeriod.month)}.`;
+}
+
 function harborAccount(): Account {
   return {
     id: "acc-harbor",
@@ -200,7 +211,14 @@ describe("Finora spending view", () => {
     ).toBeInTheDocument();
     expect(
       within(region).getByText(
-        `You spent ${formatCurrency(insight!.currentSpending, insight!.currency)} this month, compared with ${formatCurrency(insight!.previousSpending, insight!.currency)} last month.`,
+        comparedInMonths(
+          "spent",
+          insight!.currentSpending,
+          insight!.previousSpending,
+          insight!.currency,
+          insight!.currentPeriod,
+          insight!.previousPeriod,
+        ),
       ),
     ).toBeInTheDocument();
     expect(
@@ -231,6 +249,21 @@ describe("Finora spending view", () => {
     const insight = calculateSpendingChange(fixtureTransactions);
     const region = screen.getByRole("region", { name: "Spending change" });
     expect(screen.getByRole("heading", { name: "August 2026" })).toBeInTheDocument();
+    expect(
+      within(region).getByText(/does not follow the month selected below/),
+    ).toBeInTheDocument();
+    expect(
+      within(region).getByText(
+        comparedInMonths(
+          "spent",
+          insight!.currentSpending,
+          insight!.previousSpending,
+          insight!.currency,
+          insight!.currentPeriod,
+          insight!.previousPeriod,
+        ),
+      ),
+    ).toBeInTheDocument();
     expect(
       within(region).getByText(
         `${formatMonth(insight!.currentPeriod.year, insight!.currentPeriod.month)} compared with ${formatMonth(insight!.previousPeriod.year, insight!.previousPeriod.month)}`,
@@ -274,7 +307,14 @@ describe("Finora spending view", () => {
     ).toBeInTheDocument();
     expect(
       within(region).getByText(
-        `You spent ${formatCurrency(55, "USD")} this month, compared with ${formatCurrency(20, "USD")} last month.`,
+        comparedInMonths(
+          "spent",
+          55,
+          20,
+          "USD",
+          insight!.currentPeriod,
+          insight!.previousPeriod,
+        ),
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText("Spending decreased")).not.toBeInTheDocument();
@@ -315,7 +355,7 @@ describe("Finora spending view", () => {
     ).toBeInTheDocument();
     expect(
       within(region).getByText(
-        `You spent ${formatCurrency(40, "USD")} this month, compared with ${formatCurrency(40, "USD")} last month.`,
+        comparedInMonths("spent", 40, 40, "USD", { year: 2026, month: 4 }, { year: 2026, month: 3 }),
       ),
     ).toBeInTheDocument();
     expect(
@@ -378,12 +418,26 @@ describe("Finora spending view", () => {
     ).toBeInTheDocument();
     expect(
       within(region).getByText(
-        `You received ${formatCurrency(income!.currentIncome, income!.currency)} this month, compared with ${formatCurrency(income!.previousIncome, income!.currency)} last month.`,
+        comparedInMonths(
+          "received",
+          income!.currentIncome,
+          income!.previousIncome,
+          income!.currency,
+          income!.currentPeriod,
+          income!.previousPeriod,
+        ),
       ),
     ).toBeInTheDocument();
     expect(
       within(region).getByText(
-        `You retained ${formatCurrency(savings!.currentSavings, savings!.currency)} this month, compared with ${formatCurrency(savings!.previousSavings, savings!.currency)} last month.`,
+        comparedInMonths(
+          "retained",
+          savings!.currentSavings,
+          savings!.previousSavings,
+          savings!.currency,
+          savings!.currentPeriod,
+          savings!.previousPeriod,
+        ),
       ),
     ).toBeInTheDocument();
     expect(
@@ -426,6 +480,9 @@ describe("Finora spending view", () => {
       name: "Income and savings change",
     });
     expect(screen.getByRole("heading", { name: "August 2026" })).toBeInTheDocument();
+    expect(
+      within(region).getByText(/does not follow the month selected below/),
+    ).toBeInTheDocument();
     expect(
       within(region).getAllByText(
         `${formatMonth(income!.currentPeriod.year, income!.currentPeriod.month)} compared with ${formatMonth(income!.previousPeriod.year, income!.previousPeriod.month)}`,

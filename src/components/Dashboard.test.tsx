@@ -88,6 +88,23 @@ describe("Finora dashboard", () => {
     ).toBeInTheDocument();
   });
 
+  it("places attention before history tables", () => {
+    renderDashboard();
+
+    const attention = screen.getByRole("region", { name: "Attention" });
+    const history = screen.getByRole("region", { name: "Net worth history" });
+    const recent = screen.getByRole("region", { name: "Recent months" });
+
+    expect(
+      attention.compareDocumentPosition(history) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(
+      attention.compareDocumentPosition(recent) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
   it("shows calculated net worth and monthly spending from existing calculations", () => {
     renderDashboard();
 

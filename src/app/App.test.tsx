@@ -281,7 +281,7 @@ describe("Finora app navigation", () => {
     ).toBeInTheDocument();
     expect(
       within(region).getByText(
-        `You spent ${formatCurrency(insight!.currentSpending, insight!.currency)} this month, compared with ${formatCurrency(insight!.previousSpending, insight!.currency)} last month.`,
+        `You spent ${formatCurrency(insight!.currentSpending, insight!.currency)} in ${formatMonth(insight!.currentPeriod.year, insight!.currentPeriod.month)}, compared with ${formatCurrency(insight!.previousSpending, insight!.currency)} in ${formatMonth(insight!.previousPeriod.year, insight!.previousPeriod.month)}.`,
       ),
     ).toBeInTheDocument();
     expect(

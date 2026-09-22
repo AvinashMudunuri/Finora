@@ -636,6 +636,26 @@ export function Dashboard({
           </div>
         </section>
 
+        <section className="panel" aria-labelledby="attention-heading">
+          <div className="panel-header">
+            <h2 id="attention-heading">Attention</h2>
+            <p className="panel-copy">
+              What needs inspection now, from stored records. Open Insights
+              for why each item appears and the supporting evidence. No
+              recommendations are invented.
+            </p>
+          </div>
+          <AttentionInsights
+            accounts={accounts}
+            cards={cards}
+            transactions={transactions}
+            presentation="summary"
+            onOpenCard={onOpenCard}
+            onOpenTransaction={onOpenTransaction}
+            onShowSpending={onShowSpending}
+          />
+        </section>
+
         <section className="panel" aria-labelledby="net-worth-history-heading">
           <div className="panel-header">
             <h2 id="net-worth-history-heading">Net worth history</h2>
@@ -706,26 +726,6 @@ export function Dashboard({
               </tbody>
             </table>
           )}
-        </section>
-
-        <section className="panel" aria-labelledby="attention-heading">
-          <div className="panel-header">
-            <h2 id="attention-heading">Attention</h2>
-            <p className="panel-copy">
-              What needs inspection now, from stored records. Open Insights
-              for why each item appears and the supporting evidence. No
-              recommendations are invented.
-            </p>
-          </div>
-          <AttentionInsights
-            accounts={accounts}
-            cards={cards}
-            transactions={transactions}
-            presentation="summary"
-            onOpenCard={onOpenCard}
-            onOpenTransaction={onOpenTransaction}
-            onShowSpending={onShowSpending}
-          />
         </section>
 
         <section className="panel" aria-labelledby="inspect-heading">

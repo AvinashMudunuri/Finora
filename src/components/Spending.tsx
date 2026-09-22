@@ -180,7 +180,8 @@ export function Spending({
           <h1>Spending</h1>
           <p className="page-lede">
             What you earned, what you spent, and the resulting savings for the
-            selected month.
+            selected month. Change comparisons stay on the latest activity
+            month.
           </p>
         </div>
 
@@ -189,9 +190,10 @@ export function Spending({
             <div className="panel-header">
               <h2 id="spending-change-heading">Spending change</h2>
               <p className="panel-copy">
-                How spending this month compares with the previous month, using
-                the same expense and card-purchase totals as the spending
-                metric.
+                How spending in the latest activity month compares with the
+                previous calendar month, using the same expense and
+                card-purchase totals as the spending metric. This comparison
+                does not follow the month selected below.
               </p>
             </div>
 
@@ -207,12 +209,22 @@ export function Spending({
                   spendingChange.currentSpending,
                   spendingChange.currency,
                 )}{" "}
-                this month, compared with{" "}
+                in{" "}
+                {formatMonth(
+                  spendingChange.currentPeriod.year,
+                  spendingChange.currentPeriod.month,
+                )}
+                , compared with{" "}
                 {formatCurrency(
                   spendingChange.previousSpending,
                   spendingChange.currency,
                 )}{" "}
-                last month.
+                in{" "}
+                {formatMonth(
+                  spendingChange.previousPeriod.year,
+                  spendingChange.previousPeriod.month,
+                )}
+                .
               </p>
               <p className="stat-note">
                 {formatMonth(
@@ -301,10 +313,11 @@ export function Spending({
                 Income and savings change
               </h2>
               <p className="panel-copy">
-                How income and the resulting savings this month compare with the
-                previous month, using the same monthly income and savings
-                calculations. Transfers and card payments are not income or
-                spending.
+                How income and the resulting savings in the latest activity
+                month compare with the previous calendar month, using the same
+                monthly income and savings calculations. Transfers and card
+                payments are not income or spending. This comparison does not
+                follow the month selected below.
               </p>
             </div>
 
@@ -322,12 +335,22 @@ export function Spending({
                       incomeChange.currentIncome,
                       incomeChange.currency,
                     )}{" "}
-                    this month, compared with{" "}
+                    in{" "}
+                    {formatMonth(
+                      incomeChange.currentPeriod.year,
+                      incomeChange.currentPeriod.month,
+                    )}
+                    , compared with{" "}
                     {formatCurrency(
                       incomeChange.previousIncome,
                       incomeChange.currency,
                     )}{" "}
-                    last month.
+                    in{" "}
+                    {formatMonth(
+                      incomeChange.previousPeriod.year,
+                      incomeChange.previousPeriod.month,
+                    )}
+                    .
                   </p>
                   <p className="stat-note">
                     {formatMonth(
@@ -356,16 +379,32 @@ export function Spending({
                       savingsChange.currentSavings,
                       savingsChange.currency,
                     )}{" "}
-                    this month, compared with{" "}
+                    in{" "}
+                    {formatMonth(
+                      savingsChange.currentPeriod.year,
+                      savingsChange.currentPeriod.month,
+                    )}
+                    , compared with{" "}
                     {formatCurrency(
                       savingsChange.previousSavings,
                       savingsChange.currency,
                     )}{" "}
-                    last month.
+                    in{" "}
+                    {formatMonth(
+                      savingsChange.previousPeriod.year,
+                      savingsChange.previousPeriod.month,
+                    )}
+                    .
                   </p>
                   <dl className="position-breakdown">
                     <div>
-                      <dt>Income this month</dt>
+                      <dt>
+                        Income{" "}
+                        {formatMonth(
+                          savingsChange.currentPeriod.year,
+                          savingsChange.currentPeriod.month,
+                        )}
+                      </dt>
                       <dd>
                         {formatCurrency(
                           savingsChange.currentIncome,
@@ -374,7 +413,13 @@ export function Spending({
                       </dd>
                     </div>
                     <div>
-                      <dt>Income last month</dt>
+                      <dt>
+                        Income{" "}
+                        {formatMonth(
+                          savingsChange.previousPeriod.year,
+                          savingsChange.previousPeriod.month,
+                        )}
+                      </dt>
                       <dd>
                         {formatCurrency(
                           savingsChange.previousIncome,
@@ -383,7 +428,13 @@ export function Spending({
                       </dd>
                     </div>
                     <div>
-                      <dt>Spending this month</dt>
+                      <dt>
+                        Spending{" "}
+                        {formatMonth(
+                          savingsChange.currentPeriod.year,
+                          savingsChange.currentPeriod.month,
+                        )}
+                      </dt>
                       <dd>
                         {formatCurrency(
                           savingsChange.currentSpending,
@@ -392,7 +443,13 @@ export function Spending({
                       </dd>
                     </div>
                     <div>
-                      <dt>Spending last month</dt>
+                      <dt>
+                        Spending{" "}
+                        {formatMonth(
+                          savingsChange.previousPeriod.year,
+                          savingsChange.previousPeriod.month,
+                        )}
+                      </dt>
                       <dd>
                         {formatCurrency(
                           savingsChange.previousSpending,
