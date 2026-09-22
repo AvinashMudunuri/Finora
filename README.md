@@ -85,6 +85,26 @@ npm run lint
 npm run build
 ```
 
+Production preview (`npm run build && npm run preview`) also generates the PWA service worker (`generateSW`) and hosts the Account, Card, and Transaction APIs. Existing e2e fixture builds:
+
+```bash
+npm run build:e2e-all-current
+npm run build:e2e-overdue
+npm run build:e2e-nw-decreased
+npm run build:e2e-nw-unchanged
+npm run build:e2e-high-util
+npm run build:e2e-no-attention
+```
+
+## Production / operations
+
+- **Node:** `>=20.19.0` (Volta pin `22.14.0`).
+- **Environment:** no committed secrets. Optional store paths: `FINORA_ACCOUNT_STORE`, `FINORA_CARD_STORE`, `FINORA_TRANSACTION_STORE`.
+- **PWA:** `registerType: autoUpdate`. `/api/accounts`, `/api/cards`, and `/api/transactions` are NetworkOnly. After a new deploy, unregister or wait for the updated service worker if preview still serves a stale `index-*.js`.
+- **Build identity:** `#root` has `data-finora-mode` (`development` | `production` | `e2e-*`).
+- **Render failure:** `AppErrorBoundary` shows a reload path and logs `Finora failed to render.` Gateway load failures stay user-visible via `systemNotice` and log `Finora could not load …`.
+- **Auth / cloud DB:** not in MVP. Do not treat their absence as a production defect.
+
 ## Technology
 
 TypeScript, React, Vite, Vitest, and standard CSS.
