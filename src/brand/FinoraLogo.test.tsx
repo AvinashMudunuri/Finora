@@ -10,12 +10,11 @@ describe("FinoraLogo", () => {
     expect(document.querySelector(".brand-mark")).toBeNull();
   });
 
-  it("reuses the approved F mark and wordmark when compact", () => {
+  it("renders a smaller wordmark when compact", () => {
     render(<FinoraLogo compact />);
     const wordmark = screen.getByRole("img", { name: "Finora" });
     expect(wordmark.getAttribute("src")).toBe("/brand/finora-wordmark.png");
-    const mark = document.querySelector(".brand-mark");
-    expect(mark?.getAttribute("src")).toBe("/brand/finora-f-mark.png");
-    expect(mark?.getAttribute("alt")).toBe("");
+    expect(wordmark).toHaveClass("brand-wordmark-compact");
+    expect(document.querySelector(".brand-mark")).toBeNull();
   });
 });
