@@ -55,6 +55,9 @@ function closeDialog(dialog: HTMLDialogElement | null): void {
   dialog.removeAttribute("open");
 }
 
+/** Each destination remounts SiteHeader. Remember to focus the new Menu button. */
+let restoreTriggerFocus = false;
+
 export function SiteHeader({
   current,
   systemNotice,
@@ -83,8 +86,26 @@ export function SiteHeader({
   function closeMenu(): void {
     closeDialog(dialogRef.current);
     setMenuOpen(false);
+    restoreTriggerFocus = true;
     triggerRef.current?.focus();
+    window.setTimeout(() => {
+      if (
+        restoreTriggerFocus &&
+        triggerRef.current &&
+        document.contains(triggerRef.current)
+      ) {
+        restoreTriggerFocus = false;
+      }
+    }, 0);
   }
+
+  useEffect(() => {
+    if (!restoreTriggerFocus || !isMobile) {
+      return;
+    }
+    restoreTriggerFocus = false;
+    triggerRef.current?.focus();
+  }, [isMobile]);
 
   function openMenu(): void {
     const dialog = dialogRef.current;
@@ -112,9 +133,7 @@ export function SiteHeader({
     document.body.style.overflow = "hidden";
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        closeDialog(dialogRef.current);
-        setMenuOpen(false);
-        triggerRef.current?.focus();
+        closeMenu();
       }
     };
     document.addEventListener("keydown", onKeyDown);
