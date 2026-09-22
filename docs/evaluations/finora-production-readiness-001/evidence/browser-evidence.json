@@ -1,0 +1,36 @@
+{
+  "preview": "http://127.0.0.1:4174/",
+  "note": "First load served stale Workbox precache (index-BNz8OleS.css / index-CPjMmvhA.js). After unregister + cache delete, live assets were index-DN0LJLM1.css and index-BqDwscUY.js.",
+  "buildIdentity": {
+    "data-finora-mode": "production"
+  },
+  "contrast": {
+    "beforeToken": "#94a3b8",
+    "afterToken": "#64748b",
+    "historyHeaderComputed": "rgb(100, 116, 139)"
+  },
+  "financials": {
+    "netWorth": "$23,168.43",
+    "assets": "$25,337.02",
+    "liabilities": "$2,168.59",
+    "investment": "$8,420.55",
+    "septemberIncome": "$3,200.00",
+    "septemberSpending": "$87.42",
+    "septemberSavings": "$3,112.58",
+    "visaMinimum": "$35.00",
+    "visaOutstanding": "$1,842.19",
+    "amexOutstanding": "$326.40",
+    "observedOn": ["dashboard", "accounts", "cards", "spending"]
+  },
+  "desktop1440": {
+    "destinations": ["Dashboard", "Accounts", "Cards", "Transactions", "Spending", "Insights"],
+    "horizontalNav": true,
+    "overflow": 0
+  },
+  "mobile375": {
+    "drawer": true,
+    "escapeCloses": true,
+    "focusReturnsTo": "Open menu",
+    "destinationsVisited": ["Dashboard", "Accounts", "Cards", "Transactions", "Spending", "Insights"]
+  }
+}

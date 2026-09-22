@@ -197,7 +197,8 @@ export default function App({
               : (nextAccounts[0]?.id ?? ""),
           );
         }
-      } catch {
+      } catch (error) {
+        console.error("Finora could not load accounts.", error);
         if (!cancelled) {
           setAccountLoadError(ACCOUNT_UNAVAILABLE_MESSAGE);
         }
@@ -246,7 +247,8 @@ export default function App({
               : (nextCards[0]?.id ?? ""),
           );
         }
-      } catch {
+      } catch (error) {
+        console.error("Finora could not load cards.", error);
         if (!cancelled) {
           setCardLoadError(CARD_UNAVAILABLE_MESSAGE);
         }
@@ -277,7 +279,8 @@ export default function App({
               : (nextTransactions[0]?.id ?? ""),
           );
         }
-      } catch {
+      } catch (error) {
+        console.error("Finora could not load transactions.", error);
         if (!cancelled) {
           setTransactionLoadError(TRANSACTION_UNAVAILABLE_MESSAGE);
         }

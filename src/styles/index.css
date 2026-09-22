@@ -10,7 +10,8 @@
   --color-card: #ffffff;
   --color-text: #0b1b34;
   --color-text-secondary: #64748b;
-  --color-text-muted: #94a3b8;
+  /* ponytail: #94a3b8 on white is ~2.86:1; slate-500 meets AA for table headers / tones */
+  --color-text-muted: #64748b;
   --color-border: #e2e8f0;
   --color-divider: #eef2f6;
   --color-positive: #087f86;
