@@ -961,6 +961,25 @@ textarea[aria-invalid="true"] {
   box-sizing: border-box;
 }
 
+.stack-form {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.history-table-wrap {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.data-source-row {
+  align-items: center;
+}
+
+.field input[type="file"] {
+  min-height: 2.75rem;
+}
+
 .field-error {
   margin: 0;
   color: var(--color-negative);

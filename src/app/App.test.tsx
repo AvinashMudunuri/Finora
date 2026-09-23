@@ -652,4 +652,49 @@ describe("Finora transaction backend integration", () => {
       ),
     ).toBeInTheDocument();
   });
+
+  it("imports a CSV into a separate user ledger without changing demo fixtures", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Transactions" }));
+
+    const csv = `Transaction Date,Narration,Debit,Credit,Balance
+2026-08-03,Payroll — Imported Co,,3200,8000
+2026-08-04,Whole Foods Market,87.42,,7912.58
+`;
+    const file = new File([csv], "hdfc.csv", { type: "text/csv" });
+    await user.upload(screen.getByLabelText("Statement file"), file);
+
+    expect(await screen.findByText(/2 transactions found/)).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Import totals" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Review transactions" }));
+    expect(screen.getByText(/2 transactions/)).toBeInTheDocument();
+    expect(screen.getByText(/0 need review/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Import 2 new transactions" }));
+
+    expect(
+      within(screen.getByRole("list", { name: "Transaction list" })).getByText(
+        "Payroll — Imported Co",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Payroll — Acme Corp")).not.toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Imported statements" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Accounts" }));
+    expect(screen.getByRole("heading", { level: 2, name: "Imported account" })).toBeInTheDocument();
+    expect(screen.queryByText("Everyday Checking")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Transactions" }));
+    await user.click(screen.getByRole("button", { name: "Show demo data" }));
+    expect(
+      within(screen.getByRole("list", { name: "Transaction list" })).getByText(
+        "Payroll — Acme Corp",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Payroll — Imported Co")).not.toBeInTheDocument();
+    expect(fixtureTransactions).toHaveLength(15);
+  });
 });

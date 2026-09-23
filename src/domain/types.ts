@@ -1,4 +1,5 @@
-export type CurrencyCode = "USD";
+/** Fixtures stay USD. Imported ledgers may use another ISO 4217 code; no FX. */
+export type CurrencyCode = string;
 
 export type AccountType = "bank" | "cash" | "investment";
 
@@ -32,7 +33,10 @@ export type TransactionEventType =
   | "transfer"
   | "card_purchase"
   | "card_payment"
-  | "investment";
+  | "investment"
+  | "unknown";
+
+export type TransactionSource = "import";
 
 export type Transaction = {
   id: string;
@@ -44,6 +48,8 @@ export type Transaction = {
   accountId: string | null;
   counterpartyAccountId: string | null;
   cardId: string | null;
+  source?: TransactionSource;
+  sourceFileId?: string;
 };
 
 export const ACCOUNT_TYPES: readonly AccountType[] = [
@@ -65,6 +71,7 @@ export const TRANSACTION_EVENT_TYPES: readonly TransactionEventType[] = [
   "card_purchase",
   "card_payment",
   "investment",
+  "unknown",
 ];
 
 export type AccountDraft = {

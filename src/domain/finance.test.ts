@@ -338,6 +338,7 @@ describe("event type labels", () => {
     expect(eventTypeLabel("card_purchase")).toBe("Card purchase");
     expect(eventTypeLabel("card_payment")).toBe("Card payment");
     expect(eventTypeLabel("investment")).toBe("Investment");
+    expect(eventTypeLabel("unknown")).toBe("Needs review");
   });
 });
 
