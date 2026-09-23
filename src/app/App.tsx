@@ -28,6 +28,8 @@ import { Dashboard } from "../components/Dashboard.tsx";
 import { Insights } from "../components/Insights.tsx";
 import { Spending } from "../components/Spending.tsx";
 import { Transactions } from "../components/Transactions.tsx";
+import { emptyUserLedger, readUserLedger, writeUserLedger } from "../application/import/store.ts";
+import type { UserLedger } from "../application/import/types.ts";
 import type { AppView } from "../navigation/primary.ts";
 import {
   fixtureAccounts,
@@ -119,14 +121,26 @@ export default function App({
   const [accountLoadError, setAccountLoadError] = useState("");
   const [cardLoadError, setCardLoadError] = useState("");
   const [transactionLoadError, setTransactionLoadError] = useState("");
+  const [userLedger, setUserLedger] = useState<UserLedger>(() => {
+    if (typeof window === "undefined") {
+      return emptyUserLedger();
+    }
+    return readUserLedger(window.localStorage) ?? emptyUserLedger();
+  });
+  const [useImportedLedger, setUseImportedLedger] = useState(
+    () => userLedger.statements.length > 0,
+  );
   const [selectedAccountId, setSelectedAccountId] = useState(
-    () => accounts[0]?.id ?? "",
+    () =>
+      (useImportedLedger ? userLedger.accounts[0]?.id : accounts[0]?.id) ?? "",
   );
   const [selectedCardId, setSelectedCardId] = useState(
-    () => cards[0]?.id ?? "",
+    () => (useImportedLedger ? userLedger.cards[0]?.id : cards[0]?.id) ?? "",
   );
   const [selectedTransactionId, setSelectedTransactionId] = useState(
-    () => transactions[0]?.id ?? "",
+    () =>
+      (useImportedLedger ? userLedger.transactions[0]?.id : transactions[0]?.id) ??
+      "",
   );
 
   useEffect(() => {
@@ -314,6 +328,48 @@ export default function App({
     return { ok: true, value: true };
   };
 
+  const persistImportedLedger = (next: UserLedger): EntityMutationResult<true> => {
+    try {
+      writeUserLedger(typeof window === "undefined" ? null : window.localStorage, next);
+    } catch (error) {
+      return {
+        ok: false,
+        errors: {
+          form:
+            error instanceof Error && error.message.trim().length > 0
+              ? error.message
+              : "Imported statements could not be saved on this device.",
+        },
+      };
+    }
+    setUserLedger(next);
+    return { ok: true, value: true };
+  };
+
+  const applyUserLedger = (next: UserLedger): void => {
+    const saved = persistImportedLedger(next);
+    if (!saved.ok) {
+      return;
+    }
+    if (next.statements.length === 0) {
+      return;
+    }
+    setUseImportedLedger(true);
+    setSelectedAccountId((current) =>
+      next.accounts.some((account) => account.id === current)
+        ? current
+        : (next.accounts[0]?.id ?? ""),
+    );
+    setSelectedCardId((current) =>
+      next.cards.some((card) => card.id === current) ? current : (next.cards[0]?.id ?? ""),
+    );
+    setSelectedTransactionId((current) =>
+      next.transactions.some((transaction) => transaction.id === current)
+        ? current
+        : (next.transactions[0]?.id ?? ""),
+    );
+  };
+
   const persistCards = (nextCards: Card[]): EntityMutationResult<true> => {
     try {
       saveManagedCards(
@@ -369,6 +425,21 @@ export default function App({
   const handleCreateAccount = (
     draft: AccountDraft,
   ): EntityMutationResult<Account> => {
+    if (useImportedLedger) {
+      const created = createAccount(draft, userLedger.accounts);
+      if (!created.ok) {
+        return created;
+      }
+      const saved = persistImportedLedger({
+        ...userLedger,
+        accounts: [...userLedger.accounts, created.value],
+      });
+      if (!saved.ok) {
+        return saved;
+      }
+      setSelectedAccountId(created.value.id);
+      return created;
+    }
     const created = createAccount(draft, accounts);
     if (!created.ok) {
       return created;
@@ -407,6 +478,28 @@ export default function App({
     id: string,
     draft: AccountDraft,
   ): EntityMutationResult<Account> => {
+    if (useImportedLedger) {
+      const updated = updateAccount(
+        id,
+        draft,
+        userLedger.accounts,
+        userLedger.transactions,
+        userLedger.cards,
+      );
+      if (!updated.ok) {
+        return updated;
+      }
+      const saved = persistImportedLedger({
+        ...userLedger,
+        accounts: userLedger.accounts.map((account) =>
+          account.id === id ? updated.value : account,
+        ),
+      });
+      if (!saved.ok) {
+        return saved;
+      }
+      return updated;
+    }
     const updated = updateAccount(id, draft, accounts, transactions, cards);
     if (!updated.ok) {
       return updated;
@@ -438,6 +531,21 @@ export default function App({
   };
 
   const handleCreateCard = (draft: CardDraft): EntityMutationResult<Card> => {
+    if (useImportedLedger) {
+      const created = createCard(draft, userLedger.cards);
+      if (!created.ok) {
+        return created;
+      }
+      const saved = persistImportedLedger({
+        ...userLedger,
+        cards: [...userLedger.cards, created.value],
+      });
+      if (!saved.ok) {
+        return saved;
+      }
+      setSelectedCardId(created.value.id);
+      return created;
+    }
     const created = createCard(draft, cards);
     if (!created.ok) {
       return created;
@@ -476,6 +584,26 @@ export default function App({
     id: string,
     draft: CardDraft,
   ): EntityMutationResult<Card> => {
+    if (useImportedLedger) {
+      const updated = updateCard(
+        id,
+        draft,
+        userLedger.cards,
+        userLedger.transactions,
+        userLedger.accounts,
+      );
+      if (!updated.ok) {
+        return updated;
+      }
+      const saved = persistImportedLedger({
+        ...userLedger,
+        cards: userLedger.cards.map((card) => (card.id === id ? updated.value : card)),
+      });
+      if (!saved.ok) {
+        return saved;
+      }
+      return updated;
+    }
     const updated = updateCard(id, draft, cards, transactions, accounts);
     if (!updated.ok) {
       return updated;
@@ -510,14 +638,17 @@ export default function App({
     setView("insights");
   };
 
+  const shownAccounts = useImportedLedger ? userLedger.accounts : accounts;
+  const shownCards = useImportedLedger ? userLedger.cards : cards;
+  const shownTransactions = useImportedLedger ? userLedger.transactions : transactions;
   const systemNotice = accountLoadError || cardLoadError || transactionLoadError;
 
   if (view === "accounts") {
     return (
       <Accounts
-        accounts={accounts}
-        cards={cards}
-        transactions={transactions}
+        accounts={shownAccounts}
+        cards={shownCards}
+        transactions={shownTransactions}
         selectedAccountId={selectedAccountId}
         systemNotice={systemNotice}
         onSelectAccount={setSelectedAccountId}
@@ -547,8 +678,8 @@ export default function App({
   if (view === "cards") {
     return (
       <Cards
-        cards={cards}
-        transactions={transactions}
+        cards={shownCards}
+        transactions={shownTransactions}
         selectedCardId={selectedCardId}
         systemNotice={systemNotice}
         onSelectCard={setSelectedCardId}
@@ -578,9 +709,9 @@ export default function App({
   if (view === "transactions") {
     return (
       <Transactions
-        accounts={accounts}
-        cards={cards}
-        transactions={transactions}
+        accounts={shownAccounts}
+        cards={shownCards}
+        transactions={shownTransactions}
         selectedTransactionId={selectedTransactionId}
         systemNotice={systemNotice}
         onSelectTransaction={setSelectedTransactionId}
@@ -605,6 +736,21 @@ export default function App({
           setView("spending");
         }}
         onShowInsights={openInsights}
+        userLedger={userLedger}
+        onUserLedgerChange={applyUserLedger}
+        showingImported={useImportedLedger}
+        onShowDemoData={() => {
+          setUseImportedLedger(false);
+          setSelectedAccountId(accounts[0]?.id ?? "");
+          setSelectedCardId(cards[0]?.id ?? "");
+          setSelectedTransactionId(transactions[0]?.id ?? "");
+        }}
+        onShowImportedData={() => {
+          setUseImportedLedger(true);
+          setSelectedAccountId(userLedger.accounts[0]?.id ?? "");
+          setSelectedCardId(userLedger.cards[0]?.id ?? "");
+          setSelectedTransactionId(userLedger.transactions[0]?.id ?? "");
+        }}
       />
     );
   }
@@ -612,9 +758,9 @@ export default function App({
   if (view === "spending") {
     return (
       <Spending
-        accounts={accounts}
-        cards={cards}
-        transactions={transactions}
+        accounts={shownAccounts}
+        cards={shownCards}
+        transactions={shownTransactions}
         systemNotice={systemNotice}
         onShowDashboard={() => {
           setView("dashboard");
@@ -640,9 +786,9 @@ export default function App({
   if (view === "insights") {
     return (
       <Insights
-        accounts={accounts}
-        cards={cards}
-        transactions={transactions}
+        accounts={shownAccounts}
+        cards={shownCards}
+        transactions={shownTransactions}
         systemNotice={systemNotice}
         onShowDashboard={() => {
           setView("dashboard");
@@ -673,9 +819,9 @@ export default function App({
 
   return (
     <Dashboard
-      accounts={accounts}
-      cards={cards}
-      transactions={transactions}
+      accounts={shownAccounts}
+      cards={shownCards}
+      transactions={shownTransactions}
       systemNotice={systemNotice}
       onShowAccounts={() => {
         setView("accounts");

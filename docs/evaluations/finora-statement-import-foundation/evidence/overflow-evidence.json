@@ -1,0 +1,16 @@
+{
+  "preview": "http://127.0.0.1:4175/",
+  "method": "document.documentElement.scrollWidth - window.innerWidth after setViewportSize",
+  "note": "documentElement.clientWidth is smaller than innerWidth by the scrollbar (~15px). That is not content overflow. Content right edge stayed inside innerWidth.",
+  "afterImport": true,
+  "viewports": [
+    { "width": 320, "contentOverflowX": 0, "nav": "mobile menu" },
+    { "width": 360, "contentOverflowX": 0, "nav": "mobile menu" },
+    { "width": 375, "contentOverflowX": 0, "nav": "mobile menu", "importPanelVisible": true },
+    { "width": 390, "contentOverflowX": 0, "nav": "mobile menu" },
+    { "width": 414, "contentOverflowX": 0, "nav": "mobile menu" },
+    { "width": 768, "contentOverflowX": 0, "nav": "desktop list" },
+    { "width": 1024, "contentOverflowX": 0, "nav": "desktop list" },
+    { "width": 1440, "contentOverflowX": 0, "nav": "desktop list" }
+  ]
+}

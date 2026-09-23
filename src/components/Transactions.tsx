@@ -11,9 +11,11 @@ import {
   transactionListEmptyReason,
   type TransactionListFilter,
 } from "../domain/finance.ts";
+import type { UserLedger } from "../application/import/types.ts";
 import type { Account, Card, Transaction, TransactionEventType } from "../domain/types.ts";
 import { TRANSACTION_EVENT_TYPES } from "../domain/types.ts";
 import { SiteHeader } from "./SiteHeader.tsx";
+import { StatementImport } from "./StatementImport.tsx";
 
 export type TransactionsProps = {
   accounts: Account[];
@@ -29,6 +31,11 @@ export type TransactionsProps = {
   onShowCards?: () => void;
   onShowSpending?: () => void;
   onShowInsights?: () => void;
+  userLedger?: UserLedger;
+  onUserLedgerChange?: (ledger: UserLedger) => void;
+  showingImported?: boolean;
+  onShowDemoData?: () => void;
+  onShowImportedData?: () => void;
 };
 
 export function Transactions({
@@ -45,6 +52,11 @@ export function Transactions({
   onShowCards,
   onShowSpending,
   onShowInsights,
+  userLedger,
+  onUserLedgerChange,
+  showingImported,
+  onShowDemoData,
+  onShowImportedData,
 }: TransactionsProps) {
   const [query, setQuery] = useState("");
   const [partyId, setPartyId] = useState<string | undefined>();
@@ -141,6 +153,32 @@ export function Transactions({
             The stored events behind Finora&apos;s position, change, and attention.
           </p>
         </div>
+
+        {userLedger && onUserLedgerChange ? (
+          <StatementImport ledger={userLedger} onLedgerChange={onUserLedgerChange} />
+        ) : null}
+
+        {userLedger && userLedger.statements.length > 0 ? (
+          <div className="choice-row data-source-row">
+            <p className="panel-copy">
+              {showingImported ? "Showing imported statements." : "Showing demo fixtures."} The
+              two ledgers stay separate.
+            </p>
+            {showingImported ? (
+              <button type="button" className="form-action-secondary" onClick={onShowDemoData}>
+                Show demo data
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="form-action-secondary"
+                onClick={onShowImportedData}
+              >
+                Show imported data
+              </button>
+            )}
+          </div>
+        ) : null}
 
         <section className="panel" aria-labelledby="transactions-list-heading">
           <div className="panel-header">

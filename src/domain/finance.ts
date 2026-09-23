@@ -162,6 +162,10 @@ export function eventTypeLabel(eventType: TransactionEventType): string {
     return "Transfer";
   }
 
+  if (eventType === "unknown") {
+    return "Needs review";
+  }
+
   return "Investment";
 }
 

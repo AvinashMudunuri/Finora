@@ -176,6 +176,22 @@ export function assertValidFinanceData(
           );
         }
         break;
+      case "unknown":
+        if (transaction.cardId) {
+          if (transaction.accountId || transaction.counterpartyAccountId) {
+            throw new Error(
+              `Transaction ${transaction.id} pending review on a card cannot also reference accounts`,
+            );
+          }
+          if (!cardIds.has(transaction.cardId)) {
+            throw new Error(
+              `Transaction ${transaction.id} references unknown card ${transaction.cardId}`,
+            );
+          }
+          break;
+        }
+        requireAccountOnly(transaction, accountIds);
+        break;
     }
   }
 }
