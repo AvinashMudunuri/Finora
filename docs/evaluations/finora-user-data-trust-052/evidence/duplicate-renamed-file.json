@@ -1,0 +1,19 @@
+{
+  "renamedOk": true,
+  "renamed": {
+    "imported": 3,
+    "accounts": [
+      "acc-imp-1",
+      "acc-imp-2"
+    ],
+    "txn": 6,
+    "types": [
+      "income",
+      "expense",
+      "unknown",
+      "income",
+      "expense",
+      "unknown"
+    ]
+  }
+}

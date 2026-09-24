@@ -1,0 +1,15 @@
+{
+  "firstOk": true,
+  "firstImported": 3,
+  "firstAccounts": 1,
+  "firstTxn": 3,
+  "secondOk": false,
+  "second": {
+    "ok": false,
+    "error": "Duplicate transaction id: stmt-33610ca4-1"
+  },
+  "sameAccount": {
+    "ok": false,
+    "error": "Those transactions are already imported."
+  }
+}
