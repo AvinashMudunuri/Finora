@@ -1,0 +1,19 @@
+{
+  "probe": "inferPaymentStatus due-date collision",
+  "file": "src/application/import/pdf.ts",
+  "function": "inferPaymentStatus",
+  "rule": "returns due when /\\bdue\\b/i AND /payment status/i; current branch is later and dead when a due-date line exists",
+  "inputContains": [
+    "Payment due date: 2026-09-22",
+    "Payment status: current"
+  ],
+  "paymentStatus": "due",
+  "expectedIfLiteralStatusHonored": "current",
+  "collisionConfirmed": true,
+  "downstream": [
+    "applyCardFacts copies paymentStatus onto the card",
+    "listCardPaymentObligations / calculateCardPaymentAttention treat due|overdue as attention",
+    "Dashboard monthly-flow Card payment uses those obligations",
+    "insights listAttentionInsights emits card-payment-due"
+  ]
+}

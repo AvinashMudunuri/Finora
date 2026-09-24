@@ -1,0 +1,16 @@
+{
+  "preview": "http://127.0.0.1:4175/",
+  "method": "document.documentElement.scrollWidth - window.innerWidth after setViewportSize; plus getBoundingClientRect().right for visible elements",
+  "note": "Page scrollWidth did not exceed innerWidth. clientWidth is smaller than innerWidth by the scrollbar (~15px). That is not page overflow. The review table (.history-table) is wider than the mobile viewport (~413px) and sits in .history-table-wrap { overflow-x: auto }. Detected type / Debit-Credit columns require horizontal scroll at 320–414.",
+  "afterImport": true,
+  "viewports": [
+    { "width": 320, "contentOverflowX": 0, "nav": "Open menu", "importHeading": true, "reviewTableRight": 459 },
+    { "width": 360, "contentOverflowX": 0, "nav": "Open menu", "importHeading": true },
+    { "width": 375, "contentOverflowX": 0, "nav": "Open menu", "importHeading": true },
+    { "width": 390, "contentOverflowX": 0, "nav": "Open menu", "importHeading": true },
+    { "width": 414, "contentOverflowX": 0, "nav": "Open menu", "importHeading": true },
+    { "width": 768, "contentOverflowX": 0, "nav": "desktop list", "importHeading": true },
+    { "width": 1024, "contentOverflowX": 0, "nav": "desktop list", "importHeading": true },
+    { "width": 1440, "contentOverflowX": 0, "nav": "desktop list", "importHeading": true }
+  ]
+}

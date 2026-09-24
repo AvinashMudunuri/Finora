@@ -1,0 +1,18 @@
+{
+  "preview": "http://127.0.0.1:4175/",
+  "head": "4817ea4",
+  "swUnregistered": true,
+  "localStorageClearedBeforeImport": true,
+  "sample": "docs/evaluations/finora-statement-import-foundation/evidence/samples/hdfc-savings.csv",
+  "flow": [
+    "Dashboard demo totals $23,168.43 / income $3,200 / spending $87.42",
+    "Transactions → upload CSV → preview 3 found, $3,200 / $87.42 / $31,000, 3 new",
+    "localStorage finora.user-ledger.v1 absent on preview (auto-detect path)",
+    "Review: Payroll Income, Whole Foods Expense, NEFT Transfer, 0 need review, no editors",
+    "Confirm: 3 rows; NEFT Needs review; history Needs review; fileName hidden",
+    "Accounts Imported account -$23,087.42",
+    "Spending August $87.42 account-funded; Dashboard imported net worth -$23,087.42; no card due",
+    "Re-import same file: 0 new · 3 already imported, Create selected, Import 0 new transactions",
+    "Show demo data: 15 fixture transactions, Payroll — Acme Corp; history row remains"
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "statements": [
+    {
+      "statementId": "stmt-861895d2",
+      "fileName": "hdfc-savings.csv",
+      "institution": "Imported statement",
+      "partyLabel": "Imported account",
+      "transactionCount": 3,
+      "status": "needs_review",
+      "importedAt": "2026-09-23"
+    }
+  ],
+  "accounts": [
+    {
+      "id": "acc-imp-1",
+      "name": "Imported account",
+      "type": "bank",
+      "balance": -23087.42,
+      "currency": "USD"
+    }
+  ],
+  "transactions": [
+    { "description": "Payroll — Imported Co", "amount": 3200, "eventType": "income" },
+    { "description": "Whole Foods Market", "amount": 87.42, "eventType": "expense" },
+    { "description": "NEFT to ICICI Savings", "amount": 31000, "eventType": "unknown" }
+  ],
+  "columnMappings": {},
+  "uiHistoryDidNotShowFileName": true
+}
