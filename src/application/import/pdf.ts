@@ -172,10 +172,10 @@ function inferLabeledDate(text: string, label: RegExp): string | undefined {
 }
 
 function inferPaymentStatus(text: string): CardPaymentStatus | undefined {
-  if (/\boverdue\b/i.test(text)) {
+  if (/payment status\s*[:-]\s*overdue/i.test(text)) {
     return "overdue";
   }
-  if (/\bdue\b/i.test(text) && /payment status/i.test(text)) {
+  if (/payment status\s*[:-]\s*due/i.test(text)) {
     return "due";
   }
   if (/payment status\s*[:-]\s*current/i.test(text)) {

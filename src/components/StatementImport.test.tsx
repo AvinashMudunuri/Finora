@@ -33,4 +33,27 @@ describe("StatementImport", () => {
       ),
     ).toBeInTheDocument();
   });
+
+  it("does not let a transfer confirm as a different type", async () => {
+    const user = userEvent.setup();
+    render(
+      <StatementImport ledger={emptyUserLedger()} onLedgerChange={() => undefined} />,
+    );
+
+    const csv = `Transaction Date,Narration,Debit,Credit,Balance
+2026-08-05,NEFT to ICICI Savings,31000,,0
+`;
+    await user.upload(
+      screen.getByLabelText("Statement file"),
+      new File([csv], "neft.csv", { type: "text/csv" }),
+    );
+
+    await user.click(await screen.findByRole("button", { name: "Review transactions" }));
+    expect(screen.getByText("Needs review")).toBeInTheDocument();
+    expect(screen.queryByText("Transfer")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Import/ })).toBeDisabled();
+    expect(
+      screen.getByText(/Choose a funding or counterparty account/i),
+    ).toBeInTheDocument();
+  });
 });

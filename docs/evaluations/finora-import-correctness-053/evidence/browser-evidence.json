@@ -1,0 +1,23 @@
+{
+  "preview": "http://127.0.0.1:4175/",
+  "baseline": "41f9612",
+  "swUnregistered": true,
+  "demoDashboardBeforeImport": {
+    "netWorth": "$23,168.43",
+    "income": "$3,200.00"
+  },
+  "hdfcCsv": {
+    "file": "docs/evaluations/finora-statement-import-foundation/evidence/samples/hdfc-savings.csv",
+    "previewTransfers": "$0.00",
+    "reviewNeftType": "Needs review",
+    "importDisabled": true,
+    "alert": "Choose a funding or counterparty account before importing transfers or card payments."
+  },
+  "currentStatusPdf": {
+    "file": "docs/evaluations/finora-import-correctness-053/evidence/samples/text-card-current.pdf",
+    "paymentStatus": "current",
+    "eventType": "card_purchase",
+    "cardsUi": "Payment status Current",
+    "dashboardCardPaymentDue": false
+  }
+}

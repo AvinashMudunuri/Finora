@@ -45,6 +45,24 @@ describe("pdf import", () => {
     expect(extracted.lines[0]?.direction).toBe("debit");
   });
 
+  it("reads explicit payment status: overdue", () => {
+    expect(
+      parsePdfStatement(CARD.replace("Payment status: due", "Payment status: overdue"))
+        .paymentStatus,
+    ).toBe("overdue");
+  });
+
+  it("keeps current when the file says payment status: current", () => {
+    expect(
+      parsePdfStatement(CARD.replace("Payment status: due", "Payment status: current"))
+        .paymentStatus,
+    ).toBe("current");
+  });
+
+  it("does not treat Payment due date as payment status due", () => {
+    expect(parsePdfStatement(CARD.replace("Payment status: due\n", "")).paymentStatus).toBeUndefined();
+  });
+
   it("rejects scanned image-only PDFs", () => {
     expect(looksScannedPdf("%PDF-1.4 /Image /Width 100", "")).toBe(true);
     expect(parsePdfStatement("").error).toMatch(/scanned/i);

@@ -41,6 +41,7 @@ export function StatementImport({ ledger, onLedgerChange }: StatementImportProps
   const [totals, setTotals] = useState<PreviewTotals>({ income: 0, spending: 0, transfers: 0 });
   const [reconciliation, setReconciliation] = useState<Reconciliation | null>(null);
   const [duplicates, setDuplicates] = useState<DuplicateSummary | null>(null);
+  const [needsFunding, setNeedsFunding] = useState(false);
 
   function reset(): void {
     setError("");
@@ -54,6 +55,7 @@ export function StatementImport({ ledger, onLedgerChange }: StatementImportProps
     setStep("file");
     setClassified([]);
     setDuplicates(null);
+    setNeedsFunding(false);
   }
 
   async function onFile(next: File | null): Promise<void> {
@@ -100,7 +102,7 @@ export function StatementImport({ ledger, onLedgerChange }: StatementImportProps
     const kind = extracted.partyKind ?? partyKind;
     setPartyKind(kind);
     setStatement(extracted);
-    refreshPreview(extracted, kind, selectedAccountId, selectedCardId);
+    refreshPreview(extracted, kind, selectedAccountId, selectedCardId, fundingAccountId);
     setStep("preview");
   }
 
@@ -109,14 +111,22 @@ export function StatementImport({ ledger, onLedgerChange }: StatementImportProps
     kind: ImportPartyKind,
     accountId: string,
     cardId: string,
+    fundingId: string,
   ): void {
     const partyId =
       kind === "card" ? cardId || ledger.cards[0]?.id || "new" : accountId || ledger.accounts[0]?.id || "new";
-    const preview = previewImport(extracted, kind, ledger.transactions, partyId);
+    const preview = previewImport(
+      extracted,
+      kind,
+      ledger.transactions,
+      partyId,
+      fundingId || undefined,
+    );
     setClassified(preview.classified);
     setTotals(preview.totals);
     setReconciliation(preview.reconciliation);
     setDuplicates(preview.duplicates);
+    setNeedsFunding(preview.needsFunding);
   }
 
   function confirmMapping(): void {
@@ -258,7 +268,7 @@ export function StatementImport({ ledger, onLedgerChange }: StatementImportProps
               onChange={(event) => {
                 const next = event.target.value as ImportPartyKind;
                 setPartyKind(next);
-                refreshPreview(statement, next, selectedAccountId, selectedCardId);
+                refreshPreview(statement, next, selectedAccountId, selectedCardId, fundingAccountId);
               }}
             >
               <option value="account">Bank / cash / investment account</option>
@@ -273,7 +283,7 @@ export function StatementImport({ ledger, onLedgerChange }: StatementImportProps
                 onChange={(event) => {
                   const next = event.target.value;
                   setSelectedAccountId(next);
-                  refreshPreview(statement, partyKind, next, selectedCardId);
+                  refreshPreview(statement, partyKind, next, selectedCardId, fundingAccountId);
                 }}
               >
                 <option value="">Create from statement</option>
@@ -293,7 +303,7 @@ export function StatementImport({ ledger, onLedgerChange }: StatementImportProps
                 onChange={(event) => {
                   const next = event.target.value;
                   setSelectedCardId(next);
-                  refreshPreview(statement, partyKind, selectedAccountId, next);
+                  refreshPreview(statement, partyKind, selectedAccountId, next, fundingAccountId);
                 }}
               >
                 <option value="">Create from statement</option>
@@ -317,25 +327,32 @@ export function StatementImport({ ledger, onLedgerChange }: StatementImportProps
               />
             </label>
           ) : null}
-          {classified.some(
-            (line) => line.eventType === "transfer" || line.eventType === "card_payment",
-          ) && ledger.accounts.length > 0 ? (
-            <label className="field">
-              <span>Funding or counterparty account</span>
-              <select
-                value={fundingAccountId}
-                onChange={(event) => {
-                  setFundingAccountId(event.target.value);
-                }}
-              >
-                <option value="">Leave as needs review</option>
-                {ledger.accounts.map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {account.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+          {needsFunding ? (
+            ledger.accounts.length > 0 ? (
+              <label className="field">
+                <span>Funding or counterparty account</span>
+                <select
+                  value={fundingAccountId}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    setFundingAccountId(next);
+                    refreshPreview(statement, partyKind, selectedAccountId, selectedCardId, next);
+                  }}
+                >
+                  <option value="">Select an account</option>
+                  {ledger.accounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <p className="field-error" role="alert">
+                Choose a funding or counterparty account before importing transfers or
+                card payments.
+              </p>
+            )
           ) : null}
           <div className="choice-row">
             <button type="button" className="form-action-secondary" onClick={reset}>
@@ -360,6 +377,12 @@ export function StatementImport({ ledger, onLedgerChange }: StatementImportProps
             {classified.length} transactions ·{" "}
             {classified.filter((line) => line.needsReview).length} need review
           </p>
+          {needsFunding && !fundingAccountId ? (
+            <p className="field-error" role="alert">
+              Choose a funding or counterparty account before importing transfers or
+              card payments.
+            </p>
+          ) : null}
           <div className="panel history-table-wrap">
             <table className="history-table">
               <thead>
@@ -394,7 +417,12 @@ export function StatementImport({ ledger, onLedgerChange }: StatementImportProps
             >
               Back
             </button>
-            <button type="button" className="form-action" onClick={confirmImport}>
+            <button
+              type="button"
+              className="form-action"
+              onClick={confirmImport}
+              disabled={needsFunding && !fundingAccountId}
+            >
               {duplicates ? `Import ${duplicates.newCount} new transactions` : "Import"}
             </button>
           </div>

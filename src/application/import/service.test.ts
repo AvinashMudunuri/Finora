@@ -1,9 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { calculateMonthlyIncome, calculateMonthlySpending } from "../../domain/calculations.ts";
 import { fixtureAccounts, fixtureTransactions } from "../../data/fixtures.ts";
-import { persistImport } from "./service.ts";
+import { persistImport, previewImport, resolvePersistedEventType } from "./service.ts";
+import { classifyLine } from "./classify.ts";
 import { emptyUserLedger } from "./store.ts";
 import type { ExtractedStatement } from "./types.ts";
+
+const COUNTERPARTY = {
+  id: "acc-icici",
+  name: "ICICI Savings",
+  type: "bank" as const,
+  balance: 0,
+  currency: "USD",
+};
 
 const BANK: ExtractedStatement = {
   kind: "csv",
@@ -46,45 +55,69 @@ const CARD: ExtractedStatement = {
 };
 
 describe("persistImport", () => {
-  it("persists a bank statement without mixing fixtures and without counting transfers as spending", () => {
-    const first = persistImport({
+  it("refuses transfers that would persist as unknown", () => {
+    const result = persistImport({
       ledger: emptyUserLedger(),
       fileName: "hdfc.csv",
       fileSize: 120,
       statement: BANK,
       partyKind: "account",
     });
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      return;
+    }
+    expect(result.error).toMatch(/funding or counterparty/i);
+  });
+
+  it("persists a bank statement without mixing fixtures and without counting transfers as spending", () => {
+    const first = persistImport({
+      ledger: { ...emptyUserLedger(), accounts: [COUNTERPARTY] },
+      fileName: "hdfc.csv",
+      fileSize: 120,
+      statement: BANK,
+      partyKind: "account",
+      fundingAccountId: COUNTERPARTY.id,
+    });
     expect(first.ok).toBe(true);
     if (!first.ok) {
       return;
     }
-    expect(first.ledger.accounts[0]?.name).toBe("HDFC Savings");
-    expect(first.ledger.accounts[0]?.balance).toBe(13112.58);
+    expect(first.ledger.accounts.some((account) => account.name === "HDFC Savings")).toBe(true);
+    expect(first.ledger.accounts.find((account) => account.name === "HDFC Savings")?.balance).toBe(
+      13112.58,
+    );
     expect(first.ledger.transactions).toHaveLength(3);
+    expect(first.ledger.transactions.find((item) => item.description.startsWith("NEFT"))?.eventType).toBe(
+      "transfer",
+    );
     expect(calculateMonthlyIncome(first.ledger.transactions, 2026, 8).total).toBe(3200);
     expect(calculateMonthlySpending(first.ledger.transactions, 2026, 8).total).toBe(87.42);
     expect(fixtureTransactions).toHaveLength(15);
     expect(fixtureAccounts[0]?.name).toBe("Everyday Checking");
 
+    const hdfcId = first.ledger.accounts.find((account) => account.name === "HDFC Savings")?.id;
     const again = persistImport({
       ledger: first.ledger,
       fileName: "hdfc.csv",
       fileSize: 120,
       statement: BANK,
       partyKind: "account",
-      selectedAccountId: first.ledger.accounts[0]?.id,
+      selectedAccountId: hdfcId,
+      fundingAccountId: COUNTERPARTY.id,
     });
     expect(again.ok).toBe(false);
   });
 
   it("preserves card minimum payment and due date when supplied", () => {
     const result = persistImport({
-      ledger: emptyUserLedger(),
+      ledger: { ...emptyUserLedger(), accounts: [COUNTERPARTY] },
       fileName: "visa.pdf",
       fileSize: 80,
       statement: CARD,
       partyKind: "card",
       creditLimit: 5000,
+      fundingAccountId: COUNTERPARTY.id,
     });
     expect(result.ok).toBe(true);
     if (!result.ok) {
@@ -99,6 +132,27 @@ describe("persistImport", () => {
     expect(result.ledger.transactions.some((item) => item.eventType === "card_purchase")).toBe(
       true,
     );
+    expect(
+      result.ledger.transactions.find((item) => item.description.startsWith("Payment"))?.eventType,
+    ).toBe("card_payment");
+  });
+
+  it("shows the same persist type in preview that persistImport stores", () => {
+    const line = classifyLine(BANK.lines[2]!, "account");
+    expect(line.eventType).toBe("transfer");
+    expect(
+      resolvePersistedEventType(line, { partyKind: "account", partyId: "acc-imp-1" }),
+    ).toBe("unknown");
+    expect(
+      previewImport(BANK, "account", [], "acc-imp-1").classified.find((item) =>
+        item.description.startsWith("NEFT"),
+      )?.eventType,
+    ).toBe("unknown");
+    expect(
+      previewImport(BANK, "account", [], "acc-imp-1", COUNTERPARTY.id).classified.find((item) =>
+        item.description.startsWith("NEFT"),
+      )?.eventType,
+    ).toBe("transfer");
   });
 
   it("does not invent a card credit limit", () => {
