@@ -1,6 +1,6 @@
-import type { Account, Card, Transaction } from "../../domain/types.ts";
+import type { Account, Card, Transaction, TransactionEventType } from "../../domain/types.ts";
 import { assertValidFinanceData } from "../../domain/validate.ts";
-import { classifyLines, previewTotals } from "./classify.ts";
+import { classifyLines, eventTypeNeedsReview, previewTotals } from "./classify.ts";
 import { csvExtractorCanHandle, extractCsvStatement, parseCsvText } from "./csv.ts";
 import { sourceFileId, splitDuplicates, statementFingerprint } from "./duplicates.ts";
 import { identifyParty } from "./identify.ts";
@@ -56,18 +56,48 @@ export function extractCsvWithMapping(text: string, mapping: ColumnMapping): Ext
   return extractCsvStatement(text, mapping);
 }
 
+export function resolvePersistedEventType(
+  line: ClassifiedLine,
+  context: {
+    partyKind: ImportPartyKind;
+    partyId: string;
+    fundingAccountId?: string;
+  },
+): TransactionEventType {
+  if (line.eventType === "card_payment") {
+    if (!context.fundingAccountId || context.partyKind !== "card") {
+      return "unknown";
+    }
+    return "card_payment";
+  }
+  if (line.eventType === "transfer") {
+    if (!context.fundingAccountId || context.fundingAccountId === context.partyId) {
+      return "unknown";
+    }
+    return "transfer";
+  }
+  return line.eventType;
+}
+
 export function previewImport(
   statement: ExtractedStatement,
   partyKind: ImportPartyKind,
   existing: readonly Transaction[],
   partyId: string,
+  fundingAccountId?: string,
 ): {
   classified: ClassifiedLine[];
   totals: PreviewTotals;
   reconciliation: Reconciliation;
   duplicates: DuplicateSummary;
+  needsFunding: boolean;
 } {
-  const classified = classifyLines(statement.lines, partyKind);
+  const rawClassified = classifyLines(statement.lines, partyKind);
+  const persistContext = { partyKind, partyId, fundingAccountId };
+  const classified = rawClassified.map((line) => {
+    const eventType = resolvePersistedEventType(line, persistContext);
+    return { ...line, eventType, needsReview: eventTypeNeedsReview(eventType) };
+  });
   return {
     classified,
     totals: previewTotals(classified),
@@ -77,6 +107,9 @@ export function previewImport(
       statement.closingBalance,
     ),
     duplicates: splitDuplicates(classified, existing, partyId),
+    needsFunding: rawClassified.some(
+      (line) => line.eventType === "transfer" || line.eventType === "card_payment",
+    ),
   };
 }
 
@@ -99,11 +132,32 @@ export function persistImport(input: {
   }
 
   const { partyId, accounts, cards } = identity;
+  const persistContext = {
+    partyKind: input.partyKind,
+    partyId,
+    fundingAccountId: input.fundingAccountId,
+  };
+  const rawClassified = classifyLines(input.statement.lines, input.partyKind);
+  if (
+    rawClassified.some(
+      (line) =>
+        (line.eventType === "transfer" || line.eventType === "card_payment") &&
+        resolvePersistedEventType(line, persistContext) === "unknown",
+    )
+  ) {
+    return {
+      ok: false,
+      error:
+        "Choose a funding or counterparty account before importing transfers or card payments.",
+    };
+  }
+
   const preview = previewImport(
     input.statement,
     input.partyKind,
     input.ledger.transactions,
     partyId,
+    input.fundingAccountId,
   );
   if (preview.duplicates.newCount === 0 && preview.classified.length > 0) {
     return { ok: false, error: "Those transactions are already imported." };
@@ -369,18 +423,19 @@ function toTransaction(
     currency: string;
   },
 ): Transaction {
+  const eventType = resolvePersistedEventType(line, context);
   const base = {
     id: context.id,
     date: line.date,
     description: line.description,
     amount: line.amount,
     currency: context.currency,
-    eventType: line.eventType,
+    eventType,
     source: "import" as const,
     sourceFileId: context.sourceFileId,
   };
 
-  if (line.eventType === "card_purchase" || (line.eventType === "unknown" && context.partyKind === "card")) {
+  if (eventType === "card_purchase" || (eventType === "unknown" && context.partyKind === "card")) {
     return {
       ...base,
       accountId: null,
@@ -389,38 +444,20 @@ function toTransaction(
     };
   }
 
-  if (line.eventType === "card_payment") {
-    if (!context.fundingAccountId || context.partyKind !== "card") {
-      return {
-        ...base,
-        eventType: "unknown",
-        accountId: context.partyKind === "account" ? context.partyId : null,
-        counterpartyAccountId: null,
-        cardId: context.partyKind === "card" ? context.partyId : null,
-      };
-    }
+  if (eventType === "card_payment") {
     return {
       ...base,
-      accountId: context.fundingAccountId,
+      accountId: context.fundingAccountId ?? null,
       counterpartyAccountId: null,
       cardId: context.partyId,
     };
   }
 
-  if (line.eventType === "transfer") {
-    if (!context.fundingAccountId || context.fundingAccountId === context.partyId) {
-      return {
-        ...base,
-        eventType: "unknown",
-        accountId: context.partyKind === "card" ? null : context.partyId,
-        counterpartyAccountId: null,
-        cardId: context.partyKind === "card" ? context.partyId : null,
-      };
-    }
+  if (eventType === "transfer") {
     return {
       ...base,
       accountId: context.partyId,
-      counterpartyAccountId: context.fundingAccountId,
+      counterpartyAccountId: context.fundingAccountId ?? null,
       cardId: null,
     };
   }

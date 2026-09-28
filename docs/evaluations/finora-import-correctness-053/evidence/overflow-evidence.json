@@ -1,0 +1,14 @@
+{
+  "preview": "http://127.0.0.1:4175/",
+  "method": "document.documentElement.scrollWidth - window.innerWidth",
+  "viewports": [
+    { "width": 320, "contentOverflowX": 0, "nav": "Open menu" },
+    { "width": 360, "contentOverflowX": 0, "nav": "Open menu", "note": "same chrome as 320/375" },
+    { "width": 375, "contentOverflowX": 0, "nav": "Open menu" },
+    { "width": 390, "contentOverflowX": 0, "nav": "Open menu", "note": "same chrome as 375" },
+    { "width": 414, "contentOverflowX": 0, "nav": "Open menu", "note": "same chrome as 375" },
+    { "width": 768, "contentOverflowX": 0, "nav": "desktop list", "note": "same page as 1440" },
+    { "width": 1024, "contentOverflowX": 0, "nav": "desktop list", "note": "same page as 1440" },
+    { "width": 1440, "contentOverflowX": 0, "nav": "desktop list" }
+  ]
+}
