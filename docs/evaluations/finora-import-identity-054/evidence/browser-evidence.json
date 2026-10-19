@@ -1,0 +1,37 @@
+{
+  "preview": "http://127.0.0.1:4175/",
+  "baselineHead": "f7c8fb7",
+  "demoAfterClear": {
+    "netWorth": 23168.43,
+    "assets": 25337.02,
+    "liabilities": 2168.59,
+    "investment": 8420.55,
+    "septemberIncome": 3200,
+    "septemberSpend": 87.42,
+    "septemberSavings": 3112.58,
+    "visaMinimum": 35
+  },
+  "firstImport": {
+    "file": "checking.csv",
+    "accounts": [{ "id": "acc-imp-1", "name": "Imported account", "balance": 7912.58 }],
+    "transactionCount": 2,
+    "sourceFileId": "stmt-edb75cea"
+  },
+  "renamedCopy": {
+    "file": "checking-copy.csv",
+    "preview": "0 new · 2 already imported",
+    "createSelected": true,
+    "importDisabled": true
+  },
+  "secondBank": {
+    "file": "second-bank.csv",
+    "createSelected": true,
+    "accounts": ["acc-imp-1", "acc-imp-2"],
+    "transactions": [
+      { "desc": "Payroll — Acme Corp", "accountId": "acc-imp-1", "type": "income" },
+      { "desc": "Whole Foods Market", "accountId": "acc-imp-1", "type": "expense" },
+      { "desc": "Payroll — Beta Corp", "accountId": "acc-imp-2", "type": "income" },
+      { "desc": "Corner Cafe", "accountId": "acc-imp-2", "type": "unknown" }
+    ]
+  }
+}

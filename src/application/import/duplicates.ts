@@ -70,6 +70,62 @@ export function splitDuplicates(
   };
 }
 
+export function statementContentId(input: {
+  institution?: string;
+  maskedNumber?: string;
+  periodStart?: string;
+  periodEnd?: string;
+  lines: readonly { date: string; amount: number; description: string; direction: string }[];
+}): string {
+  const body = input.lines
+    .map(
+      (line) =>
+        `${line.date}|${line.amount.toFixed(2)}|${line.description.trim().toLowerCase()}|${line.direction}`,
+    )
+    .join(";");
+  return hashString(`${statementFingerprint(input)}|${body}`);
+}
+
+export function importedLineSetKey(
+  lines: readonly { date: string; amount: number; description: string }[],
+): string {
+  return lines
+    .map(
+      (line) =>
+        `${line.date}|${line.amount.toFixed(2)}|${line.description.trim().toLowerCase()}`,
+    )
+    .sort()
+    .join(";");
+}
+
+// ponytail: full imported line-set equality, not a ledger-wide transaction identity store.
+// Ceiling: two different statements with the same dates/amounts/descriptions collide.
+// Upgrade: include masked number / period in the set key when extractors supply them.
+export function hasImportedLineSet(
+  existing: readonly Transaction[],
+  lines: readonly { date: string; amount: number; description: string }[],
+): boolean {
+  if (lines.length === 0) {
+    return false;
+  }
+  const incoming = importedLineSetKey(lines);
+  const grouped = new Map<string, { date: string; amount: number; description: string }[]>();
+  for (const transaction of existing) {
+    if (transaction.source !== "import" || !transaction.sourceFileId) {
+      continue;
+    }
+    const group = grouped.get(transaction.sourceFileId) ?? [];
+    group.push(transaction);
+    grouped.set(transaction.sourceFileId, group);
+  }
+  for (const group of grouped.values()) {
+    if (importedLineSetKey(group) === incoming) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function sourceFileId(fileName: string, byteLength: number, fingerprint: string): string {
   return hashString(`${fileName}|${byteLength}|${fingerprint}`);
 }

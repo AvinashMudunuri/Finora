@@ -155,6 +155,201 @@ describe("persistImport", () => {
     ).toBe("transfer");
   });
 
+  it("attaches to an explicitly selected matching account", () => {
+    const existing = {
+      id: "acc-hdfc",
+      name: "HDFC Savings",
+      type: "bank" as const,
+      balance: 50,
+      currency: "USD",
+    };
+    const result = persistImport({
+      ledger: { ...emptyUserLedger(), accounts: [existing, COUNTERPARTY] },
+      fileName: "hdfc.csv",
+      fileSize: 120,
+      statement: BANK,
+      partyKind: "account",
+      selectedAccountId: existing.id,
+      fundingAccountId: COUNTERPARTY.id,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    expect(result.ledger.accounts).toHaveLength(2);
+    expect(result.ledger.accounts.find((account) => account.id === "acc-hdfc")?.balance).toBe(
+      13112.58,
+    );
+    expect(
+      result.ledger.transactions.find((item) => item.description.startsWith("Payroll"))?.accountId,
+    ).toBe("acc-hdfc");
+  });
+
+  it("creates a new account when Create is selected even if a name matches", () => {
+    const existing = {
+      id: "acc-hdfc",
+      name: "HDFC Savings",
+      type: "bank" as const,
+      balance: 50,
+      currency: "USD",
+    };
+    const result = persistImport({
+      ledger: { ...emptyUserLedger(), accounts: [existing, COUNTERPARTY] },
+      fileName: "hdfc.csv",
+      fileSize: 120,
+      statement: BANK,
+      partyKind: "account",
+      fundingAccountId: COUNTERPARTY.id,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    expect(result.ledger.accounts).toHaveLength(3);
+    expect(result.ledger.accounts.find((account) => account.id === "acc-hdfc")?.balance).toBe(50);
+    expect(
+      result.ledger.transactions.some(
+        (item) => item.accountId === "acc-hdfc" && item.eventType !== "transfer",
+      ),
+    ).toBe(false);
+    expect(
+      result.ledger.transactions.find((item) => item.description.startsWith("Payroll"))?.accountId,
+    ).toMatch(/^acc-imp-/);
+  });
+
+  it("refuses a renamed copy of the same statement without creating another account", () => {
+    const first = persistImport({
+      ledger: { ...emptyUserLedger(), accounts: [COUNTERPARTY] },
+      fileName: "hdfc.csv",
+      fileSize: 120,
+      statement: BANK,
+      partyKind: "account",
+      fundingAccountId: COUNTERPARTY.id,
+    });
+    expect(first.ok).toBe(true);
+    if (!first.ok) {
+      return;
+    }
+    const renamed = persistImport({
+      ledger: first.ledger,
+      fileName: "hdfc-copy.csv",
+      fileSize: 999,
+      statement: BANK,
+      partyKind: "account",
+      fundingAccountId: COUNTERPARTY.id,
+    });
+    expect(renamed.ok).toBe(false);
+    if (renamed.ok) {
+      return;
+    }
+    expect(renamed.error).toMatch(/already imported/i);
+    expect(first.ledger.accounts.filter((account) => account.name === "HDFC Savings")).toHaveLength(
+      1,
+    );
+    expect(first.ledger.transactions).toHaveLength(3);
+  });
+
+  it("creates two bank accounts from two different statements", () => {
+    const other: ExtractedStatement = {
+      ...BANK,
+      institution: "ICICI Bank",
+      partyName: "ICICI Checking",
+      maskedNumber: "•••• 9999",
+      closingBalance: 500,
+      lines: [
+        {
+          date: "2026-08-08",
+          description: "Payroll — Beta Corp",
+          amount: 2100,
+          direction: "credit",
+        },
+        {
+          date: "2026-08-09",
+          description: "Corner Cafe",
+          amount: 12.5,
+          direction: "debit",
+        },
+      ],
+    };
+    const first = persistImport({
+      ledger: { ...emptyUserLedger(), accounts: [COUNTERPARTY] },
+      fileName: "hdfc.csv",
+      fileSize: 120,
+      statement: BANK,
+      partyKind: "account",
+      fundingAccountId: COUNTERPARTY.id,
+    });
+    expect(first.ok).toBe(true);
+    if (!first.ok) {
+      return;
+    }
+    const second = persistImport({
+      ledger: first.ledger,
+      fileName: "icici.csv",
+      fileSize: 80,
+      statement: other,
+      partyKind: "account",
+    });
+    expect(second.ok).toBe(true);
+    if (!second.ok) {
+      return;
+    }
+    expect(second.ledger.accounts.some((account) => account.name === "HDFC Savings")).toBe(true);
+    expect(second.ledger.accounts.some((account) => account.name === "ICICI Checking")).toBe(true);
+    expect(second.ledger.transactions).toHaveLength(5);
+    expect(
+      second.ledger.transactions.find((item) => item.description === "Corner Cafe")?.accountId,
+    ).not.toBe(second.ledger.accounts.find((account) => account.name === "HDFC Savings")?.id);
+  });
+
+  it("creates a second card with the same issuer when Create is selected", () => {
+    const first = persistImport({
+      ledger: { ...emptyUserLedger(), accounts: [COUNTERPARTY] },
+      fileName: "visa.pdf",
+      fileSize: 80,
+      statement: CARD,
+      partyKind: "card",
+      creditLimit: 5000,
+      fundingAccountId: COUNTERPARTY.id,
+    });
+    expect(first.ok).toBe(true);
+    if (!first.ok) {
+      return;
+    }
+    const other: ExtractedStatement = {
+      ...CARD,
+      partyName: "Visa Signature",
+      maskedNumber: "•••• 1111",
+      outstandingBalance: 220,
+      lines: [
+        {
+          date: "2026-08-18",
+          description: "Bookstore",
+          amount: 22,
+          direction: "debit",
+        },
+      ],
+    };
+    const second = persistImport({
+      ledger: first.ledger,
+      fileName: "visa-2.pdf",
+      fileSize: 80,
+      statement: other,
+      partyKind: "card",
+      creditLimit: 4000,
+    });
+    expect(second.ok).toBe(true);
+    if (!second.ok) {
+      return;
+    }
+    expect(second.ledger.cards).toHaveLength(2);
+    expect(second.ledger.cards.map((card) => card.name).sort()).toEqual([
+      "Visa Rewards",
+      "Visa Signature",
+    ]);
+    expect(second.ledger.cards[0]?.outstandingBalance).toBe(1842.19);
+  });
+
   it("does not invent a card credit limit", () => {
     const result = persistImport({
       ledger: emptyUserLedger(),

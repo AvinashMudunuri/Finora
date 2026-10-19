@@ -113,8 +113,7 @@ export function StatementImport({ ledger, onLedgerChange }: StatementImportProps
     cardId: string,
     fundingId: string,
   ): void {
-    const partyId =
-      kind === "card" ? cardId || ledger.cards[0]?.id || "new" : accountId || ledger.accounts[0]?.id || "new";
+    const partyId = kind === "card" ? cardId || "new" : accountId || "new";
     const preview = previewImport(
       extracted,
       kind,
@@ -421,7 +420,10 @@ export function StatementImport({ ledger, onLedgerChange }: StatementImportProps
               type="button"
               className="form-action"
               onClick={confirmImport}
-              disabled={needsFunding && !fundingAccountId}
+              disabled={
+                (needsFunding && !fundingAccountId) ||
+                (duplicates !== null && duplicates.newCount === 0 && classified.length > 0)
+              }
             >
               {duplicates ? `Import ${duplicates.newCount} new transactions` : "Import"}
             </button>
