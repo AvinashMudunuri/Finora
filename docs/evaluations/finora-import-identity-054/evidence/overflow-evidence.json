@@ -1,0 +1,15 @@
+{
+  "preview": "http://127.0.0.1:4175/",
+  "method": "document.documentElement.scrollWidth - window.innerWidth",
+  "surface": "Dashboard demo data",
+  "viewports": [
+    { "width": 320, "contentOverflowX": 0, "netWorthVisible": true },
+    { "width": 360, "contentOverflowX": -15, "netWorthVisible": true },
+    { "width": 375, "contentOverflowX": -15, "netWorthVisible": true },
+    { "width": 390, "contentOverflowX": -15, "netWorthVisible": true },
+    { "width": 414, "contentOverflowX": -15, "netWorthVisible": true },
+    { "width": 768, "contentOverflowX": -15, "netWorthVisible": true },
+    { "width": 1024, "contentOverflowX": -15, "netWorthVisible": true },
+    { "width": 1440, "contentOverflowX": -15, "netWorthVisible": true }
+  ]
+}

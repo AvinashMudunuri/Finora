@@ -2,8 +2,7 @@ import type { Account, Card, Transaction, TransactionEventType } from "../../dom
 import { assertValidFinanceData } from "../../domain/validate.ts";
 import { classifyLines, eventTypeNeedsReview, previewTotals } from "./classify.ts";
 import { csvExtractorCanHandle, extractCsvStatement, parseCsvText } from "./csv.ts";
-import { sourceFileId, splitDuplicates, statementFingerprint } from "./duplicates.ts";
-import { identifyParty } from "./identify.ts";
+import { hasImportedLineSet, splitDuplicates, statementContentId } from "./duplicates.ts";
 import {
   extractLiteralPdfStrings,
   looksScannedPdf,
@@ -98,6 +97,10 @@ export function previewImport(
     const eventType = resolvePersistedEventType(line, persistContext);
     return { ...line, eventType, needsReview: eventTypeNeedsReview(eventType) };
   });
+  const sourceId = statementContentId(statement);
+  const alreadyImported =
+    existing.some((transaction) => transaction.sourceFileId === sourceId) ||
+    hasImportedLineSet(existing, statement.lines);
   return {
     classified,
     totals: previewTotals(classified),
@@ -106,7 +109,14 @@ export function previewImport(
       statement.openingBalance,
       statement.closingBalance,
     ),
-    duplicates: splitDuplicates(classified, existing, partyId),
+    duplicates: alreadyImported
+      ? {
+          newCount: 0,
+          duplicateCount: classified.length,
+          newLines: [],
+          duplicateLines: classified,
+        }
+      : splitDuplicates(classified, existing, partyId),
     needsFunding: rawClassified.some(
       (line) => line.eventType === "transfer" || line.eventType === "card_payment",
     ),
@@ -126,6 +136,15 @@ export function persistImport(input: {
 }):
   | { ok: true; ledger: UserLedger; imported: number; status: ImportedStatement["status"] }
   | { ok: false; error: string } {
+  const sourceId = statementContentId(input.statement);
+  if (
+    input.ledger.statements.some((item) => item.sourceFileId === sourceId) ||
+    input.ledger.transactions.some((item) => item.sourceFileId === sourceId) ||
+    hasImportedLineSet(input.ledger.transactions, input.statement.lines)
+  ) {
+    return { ok: false, error: "Those transactions are already imported." };
+  }
+
   const identity = resolveIdentity(input);
   if (!identity.ok) {
     return identity;
@@ -163,11 +182,6 @@ export function persistImport(input: {
     return { ok: false, error: "Those transactions are already imported." };
   }
 
-  const sourceId = sourceFileId(
-    input.fileName,
-    input.fileSize,
-    statementFingerprint(input.statement),
-  );
   const now = new Date().toISOString().slice(0, 10);
   const transactions = preview.duplicates.newLines.map((line, index) =>
     toTransaction(line, {
@@ -264,45 +278,6 @@ function resolveIdentity(input: {
       partyId: input.selectedCardId,
       accounts: [...input.ledger.accounts],
       cards: applyCardFacts(input.ledger.cards, input.selectedCardId, input.statement),
-    };
-  }
-
-  const decision = identifyParty(input.statement, input.ledger.accounts, input.ledger.cards);
-  if (decision.kind === "ambiguous") {
-    if (input.selectedAccountId) {
-      return {
-        ok: true,
-        partyId: input.selectedAccountId,
-        accounts: [...input.ledger.accounts],
-        cards: [...input.ledger.cards],
-      };
-    }
-    if (input.selectedCardId) {
-      return {
-        ok: true,
-        partyId: input.selectedCardId,
-        accounts: [...input.ledger.accounts],
-        cards: [...input.ledger.cards],
-      };
-    }
-    return { ok: false, error: "Select the account or card this statement belongs to." };
-  }
-
-  if (decision.kind === "account") {
-    return {
-      ok: true,
-      partyId: decision.account.id,
-      accounts: applyAccountBalance(input.ledger.accounts, decision.account.id, input.statement),
-      cards: [...input.ledger.cards],
-    };
-  }
-
-  if (decision.kind === "card") {
-    return {
-      ok: true,
-      partyId: decision.card.id,
-      accounts: [...input.ledger.accounts],
-      cards: applyCardFacts(input.ledger.cards, decision.card.id, input.statement),
     };
   }
 
